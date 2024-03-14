@@ -1,0 +1,13 @@
+app:
+  server:
+    port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  user: admin
+  password: shalala
+  dbname: spotigram-db
+  sslmode: disable
+  timezone: Asia/Bangkok
+  initscriptpath: ./scripts/postgresSchemeSetup.sql

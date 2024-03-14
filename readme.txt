@@ -1,1 +1,2 @@
-Backend for Spotigram
+Backend for Spotigram.
+Just connected postgres database. I'm proud, pogchamp...
