@@ -1,0 +1,81 @@
+package utility
+
+import (
+	"encoding/base64"
+	"fmt"
+	"time"
+
+	"github.com/golang-jwt/jwt/v4"
+)
+
+type TokenDetails struct {
+	Token     string
+	TokenUUID string
+	UserUUID  string
+	ExpiresIn int64
+}
+
+func CreateToken(uuid string, ttl time.Duration, privateKey string) (*TokenDetails, error) {
+	now := time.Now().UTC()
+	td := &TokenDetails{
+		ExpiresIn: now.Add(ttl).Unix(),
+		TokenUUID: GenerateUUID(),
+		UserUUID:  uuid,
+	}
+
+	decodedPrivateKey, err := base64.StdEncoding.DecodeString(privateKey)
+	if err != nil {
+		panic(fmt.Errorf("error decoding private key: %v", err))
+	}
+
+	key, err := jwt.ParseRSAPrivateKeyFromPEM(decodedPrivateKey)
+	if err != nil {
+		panic(fmt.Errorf("error parsing private key to jwt: %v", err))
+	}
+
+	atClaims := make(jwt.MapClaims)
+	atClaims["sub"] = uuid
+	atClaims["token_uuid"] = td.TokenUUID
+	atClaims["exp"] = td.ExpiresIn
+	atClaims["iat"] = now.Unix()
+	atClaims["nbf"] = now.Unix()
+
+	td.Token, err = jwt.NewWithClaims(jwt.SigningMethodRS256, atClaims).SignedString(key)
+	if err != nil {
+		panic(fmt.Errorf("error creating jwt token: %v", err))
+	}
+	return td, nil
+}
+
+func ValidateToken(token string, publicKey string) (*TokenDetails, error) {
+	decodedPublicKey, err := base64.StdEncoding.DecodeString(publicKey)
+	if err != nil {
+		panic(fmt.Errorf("error decoding public key: %v", err))
+	}
+
+	key, err := jwt.ParseRSAPublicKeyFromPEM(decodedPublicKey)
+	if err != nil {
+		panic(fmt.Errorf("error parsing public key to jwt: %v", err))
+	}
+
+	parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected method: %s", t.Header["alg"])
+		}
+		return key, nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok || !parsedToken.Valid {
+		return nil, fmt.Errorf("validation error: invalid token")
+	}
+
+	return &TokenDetails{
+		UserUUID:  fmt.Sprint(claims["sub"]),
+		TokenUUID: fmt.Sprint(claims["token_uuid"]),
+	}, nil
+}

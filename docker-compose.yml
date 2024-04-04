@@ -1,18 +1,33 @@
 version: '3.1'
 services:
+  api:
+    build: ./
+    depends_on:
+     - db
+     - redis
+    ports:
+    - "8080:8080"
+    networks:
+     - spotigram-net
+
   db:
     image: postgres:alpine
     restart: always
     volumes:
      - db-v:/var/lib/postgresql/data
     ports:
-     - '5432:5432'
+     - "5432:5432"
     environment:
      POSTGRES_USER: admin
      POSTGRES_PASSWORD: shalala
      POSTGRES_DB: spotigram-db
+    networks:
+     - spotigram-net
+    
   pgadmin:
     image: dpage/pgadmin4
+    depends_on:
+    - db
     restart: always
     volumes:
      - pgadmin-v:/var/lib/pgadmin
@@ -21,7 +36,24 @@ services:
       PGADMIN_DEFAULT_PASSWORD: shalala
     ports:
      - "5000:80"
+    networks:
+     - spotigram-net
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-v:/data
+    networks:
+     - spotigram-net
+
 
 volumes:
   db-v:
-  pgadmin-v: 
+  pgadmin-v:
+  redis-v: 
+
+networks:
+  spotigram-net:
