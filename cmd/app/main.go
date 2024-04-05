@@ -7,7 +7,6 @@ import (
 	"spotigram/internal/infrastructure"
 	infrastructureAbstractions "spotigram/internal/infrastructure/abstractions"
 	"spotigram/internal/server"
-	serverAbstractions "spotigram/internal/server/abstractions"
 	serverConfig "spotigram/internal/server/config"
 	serviceAbstractions "spotigram/internal/service/abstractions"
 )
@@ -21,7 +20,8 @@ func main() {
 	defer infrastructureAbstractions.DatabaseProviderInstance.GetDb().Close()
 
 	cache.ConnectRedis(&cfg)
-	serverAbstractions.JWTCacheInstance = cache.NewJWTCache()
+	serviceAbstractions.JWTCacheInstance = cache.NewJWTCache()
+	defer cache.RedisClient.Close()
 
 	serviceAbstractions.UserRepositoryInstance = infrastructure.NewSqlUserRepository()
 	serviceAbstractions.ServerInstance = server.NewFiberServer()

@@ -2,13 +2,18 @@ package controllers
 
 import (
 	"spotigram/internal/customerrors"
+	"spotigram/internal/service/models"
 	"spotigram/internal/service/usecases"
 
 	"github.com/gofiber/fiber/v2"
 )
 
+// A handler to send current user info.
 func MyInfoHandler(ctx *fiber.Ctx) error {
-	user, err := usecases.GetUser(ctx.Locals("user_uuid").(string))
+	input := models.MyInfoInput{
+		AccesssTokenUUID: ctx.Locals("user_uuid").(string),
+	}
+	user, err := usecases.MyInfo(input)
 	if err != nil {
 		if errInternal, ok := err.(*customerrors.ErrInternal); ok {
 			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

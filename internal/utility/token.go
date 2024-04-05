@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+// Details of an JWT.
 type TokenDetails struct {
 	Token     string
 	TokenUUID string
@@ -15,6 +16,7 @@ type TokenDetails struct {
 	ExpiresIn int64
 }
 
+// Creates a JWT, returning its details.
 func CreateToken(uuid string, ttl time.Duration, privateKey string) (*TokenDetails, error) {
 	now := time.Now().UTC()
 	td := &TokenDetails{
@@ -47,6 +49,8 @@ func CreateToken(uuid string, ttl time.Duration, privateKey string) (*TokenDetai
 	return td, nil
 }
 
+// Validates a JWT, returning its details, containing
+// only UserUUID and TokenUUID.
 func ValidateToken(token string, publicKey string) (*TokenDetails, error) {
 	decodedPublicKey, err := base64.StdEncoding.DecodeString(publicKey)
 	if err != nil {

@@ -11,3 +11,20 @@ type SignInInput struct {
 	Email    string `validate:"required,max=100,email" json:"email"`
 	Password string `validate:"required,min=8,max=72" json:"password"`
 }
+
+type LogoutInput struct {
+	AccessTokenUUID string
+	RefreshToken    string
+}
+
+type RefreshAccessTokenInput struct {
+	RefreshToken string
+}
+
+type MyInfoInput struct {
+	AccesssTokenUUID string
+}
+
+type DeserializeTokenInput struct {
+	AccessToken string
+}

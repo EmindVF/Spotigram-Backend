@@ -13,6 +13,8 @@ var (
 	RedisClient *redis.Client
 )
 
+// Connects package's redis client to the redis
+// server from the url in the config file.
 func ConnectRedis(cfg *config.Config) {
 	ctx := context.TODO()
 

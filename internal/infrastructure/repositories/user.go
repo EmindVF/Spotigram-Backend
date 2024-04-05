@@ -12,6 +12,8 @@ type SqlUserRepository struct {
 	DBProvider abstractions.DatabaseProvider
 }
 
+// Adds user to the repository.
+// May return ErrInternal or ErrInvalidInput on failure.
 func (sdm *SqlUserRepository) AddUser(sud models.User) error {
 	db := sdm.DBProvider.GetDb()
 
@@ -31,6 +33,9 @@ func (sdm *SqlUserRepository) AddUser(sud models.User) error {
 	return nil
 }
 
+// Returns uuid and hashed password of an user by its email.
+// Email validation is not provided.
+// May return ErrInternal or ErrNotFound on failure.
 func (sdm *SqlUserRepository) GetUUIDAndPasswordByEmail(email string) (uuid string, passwordHash string, e error) {
 	db := sdm.DBProvider.GetDb()
 	row := db.QueryRow("SELECT id, password FROM users WHERE email = $1", email)
@@ -45,6 +50,9 @@ func (sdm *SqlUserRepository) GetUUIDAndPasswordByEmail(email string) (uuid stri
 	return uuid, passwordHash, nil
 }
 
+// Returns bool on whether the user uuid is present.
+// UUID validation is not provided.
+// May return ErrInternal on failure.
 func (sdm *SqlUserRepository) DoesUserExist(uuid string) (bool, error) {
 	var result string
 	err := sdm.DBProvider.GetDb().QueryRow(
@@ -59,6 +67,9 @@ func (sdm *SqlUserRepository) DoesUserExist(uuid string) (bool, error) {
 	return true, nil
 }
 
+// Returns a user by its uuid.
+// UUID validation is not provided.
+// May return ErrInternal or ErrNotFound on failure.
 func (sdm *SqlUserRepository) GetUser(uuid string) (*models.User, error) {
 	var user = models.User{}
 	err := sdm.DBProvider.GetDb().QueryRow(

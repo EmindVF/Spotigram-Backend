@@ -20,6 +20,7 @@ func (p *postgresDatabaseProvider) GetDb() *sql.DB {
 	return p.Db
 }
 
+// Initializes connected postgres database by the parameters in the config.
 func initializePostgresDatabase(cfg *config.Config, db *sql.DB) {
 	script, err := os.ReadFile(cfg.Db.InitScriptPath)
 	if err != nil {

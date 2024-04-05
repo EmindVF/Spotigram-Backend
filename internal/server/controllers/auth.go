@@ -2,20 +2,18 @@ package controllers
 
 import (
 	"encoding/json"
-	"time"
 
 	"spotigram/internal/customerrors"
+
 	"spotigram/internal/service/models"
 	"spotigram/internal/service/usecases"
 
-	"spotigram/internal/server/abstractions"
 	"spotigram/internal/server/config"
-
-	"spotigram/internal/utility"
 
 	"github.com/gofiber/fiber/v2"
 )
 
+// A handler for user sign up.
 func SignUpHandler(ctx *fiber.Ctx) error {
 	sui := models.SignUpInput{}
 	err := json.Unmarshal((ctx.Body()), &sui)
@@ -38,6 +36,7 @@ func SignUpHandler(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
 }
 
+// A handler for user sign in.
 func SignInHandler(ctx *fiber.Ctx) error {
 	sii := models.SignInInput{}
 	err := json.Unmarshal(ctx.Body(), &sii)
@@ -46,7 +45,8 @@ func SignInHandler(ctx *fiber.Ctx) error {
 			"status": "fail", "message": err.Error()})
 	}
 
-	userUuid, err := usecases.SignInUser(sii)
+	userUuid, accessTokenDetails, refreshTokenDetails, err :=
+		usecases.SignInUser(sii, config.Cfg)
 	if err != nil {
 		if errInternal, ok := err.(*customerrors.ErrInternal); ok {
 			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -58,40 +58,6 @@ func SignInHandler(ctx *fiber.Ctx) error {
 			return ctx.Status(fiber.StatusNoContent).JSON(fiber.Map{
 				"status": "fail", "message": errNotFound.Error()})
 		}
-	}
-
-	accessTokenDetails, err := utility.CreateToken(
-		userUuid, config.Cfg.AccessToken.ExpiresIn, config.Cfg.AccessToken.PrivateKey)
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
-	}
-
-	refreshTokenDetails, err := utility.CreateToken(
-		userUuid, config.Cfg.RefreshToken.ExpiresIn, config.Cfg.RefreshToken.PrivateKey)
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
-	}
-
-	now := time.Now()
-
-	err = abstractions.JWTCacheInstance.SetToken(
-		accessTokenDetails.TokenUUID,
-		userUuid,
-		(time.Unix(accessTokenDetails.ExpiresIn, 0).Sub(now)))
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
-	}
-
-	err = abstractions.JWTCacheInstance.SetToken(
-		refreshTokenDetails.TokenUUID,
-		userUuid,
-		(time.Unix(refreshTokenDetails.ExpiresIn, 0).Sub(now)))
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
 	}
 
 	ctx.Cookie(&fiber.Cookie{
@@ -110,75 +76,44 @@ func SignInHandler(ctx *fiber.Ctx) error {
 		"uuid": userUuid})
 }
 
+// A handler for user logout.
 func LogoutHandler(ctx *fiber.Ctx) error {
-	refresh_token := ctx.Cookies("refresh_token")
-	if refresh_token == "" {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "fail", "message": "token is invalid or session has expired"})
+	input := models.LogoutInput{
+		RefreshToken:    ctx.Cookies("refresh_token"),
+		AccessTokenUUID: ctx.Locals("access_token_uuid").(string),
 	}
-
-	refreshTokenClaims, err := utility.ValidateToken(refresh_token, config.Cfg.RefreshToken.PublicKey)
+	err := usecases.Logout(input, config.Cfg)
 	if err != nil {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
-	}
-
-	accessTokenUUID := ctx.Locals("access_token_uuid").(string)
-	_, err = abstractions.JWTCacheInstance.DeleteRefreshAndAccessToken(
-		refreshTokenClaims.TokenUUID, accessTokenUUID)
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
+		if errInternal, ok := err.(*customerrors.ErrInternal); ok {
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"status": "fail", "message": errInternal.Error()})
+		} else if errUnauthorized, ok := err.(*customerrors.ErrUnauthorized); ok {
+			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"status": "fail", "message": errUnauthorized.Error()})
+		}
 	}
 
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
 }
 
+// A handler for access token refresh.
 func RefreshAccessTokenHandler(ctx *fiber.Ctx) error {
-	refresh_token := ctx.Cookies("refresh_token")
-
-	if refresh_token == "" {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "fail", "message": "could not refresh access token"})
+	input := models.RefreshAccessTokenInput{
+		RefreshToken: ctx.Cookies("refresh_token"),
 	}
-
-	tokenClaims, err := utility.ValidateToken(refresh_token, config.Cfg.RefreshToken.PublicKey)
+	accessTokenDetails, err :=
+		usecases.RefreshAccessToken(input, config.Cfg)
 	if err != nil {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
-	}
-
-	userUuid, err := abstractions.JWTCacheInstance.GetToken(tokenClaims.TokenUUID)
-	if err != nil {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "fail", "message": "could not refresh access token"})
-	}
-
-	exists, err := usecases.DoesUserExist(userUuid)
-	if !exists {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "fail", "message": "the user belonging to this token no logger exists"})
-	} else if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
-	}
-
-	accessTokenDetails, err := utility.CreateToken(
-		userUuid, config.Cfg.AccessToken.ExpiresIn, config.Cfg.AccessToken.PrivateKey)
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
-	}
-
-	now := time.Now()
-
-	err = abstractions.JWTCacheInstance.SetToken(
-		accessTokenDetails.TokenUUID,
-		userUuid,
-		(time.Unix(accessTokenDetails.ExpiresIn, 0).Sub(now)))
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "fail", "message": err.Error()})
+		if errInternal, ok := err.(*customerrors.ErrInternal); ok {
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"status": "fail", "message": errInternal.Error()})
+		} else if errUnauthorized, ok := err.(*customerrors.ErrUnauthorized); ok {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status": "fail", "message": errUnauthorized.Error()})
+		} else if errNotFound, ok := err.(*customerrors.ErrNotFound); ok {
+			return ctx.Status(fiber.StatusNoContent).JSON(fiber.Map{
+				"status": "fail", "message": errNotFound.Error()})
+		}
 	}
 
 	ctx.Cookie(&fiber.Cookie{

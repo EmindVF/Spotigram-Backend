@@ -50,6 +50,8 @@ type (
 	}
 )
 
+// Returns the config object with fields
+// parsed from the configuration file.
 func GetConfig() Config {
 	viper.SetConfigName("configuration")
 	viper.SetConfigType("yaml")

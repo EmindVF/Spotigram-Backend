@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// Returns a postgres based database provider.
 func NewPostgresDatabaseProvider(cfg *config.Config) infrastructureAbstractions.DatabaseProvider {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=%s",
