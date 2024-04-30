@@ -2,6 +2,18 @@ package abstractions
 
 var UserRepositoryInstance UserRepository
 
+var FriendRepositoryInstance FriendRepository
+
+var FriendRequestRepositoryInstance FriendRequestRepository
+
+var ChatRepositoryInstance ChatRepository
+
+var PlaylistRepositoryInstance PlaylistRepository
+
+var PlaylistSongRepositoryInstance PlaylistSongRepository
+
+var SongRepositoryInstance SongRepository
+
 var ServerInstance Server
 
 var JWTCacheInstance JWTCache

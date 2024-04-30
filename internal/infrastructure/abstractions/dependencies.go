@@ -1,5 +1,6 @@
 package abstractions
 
 var (
-	DatabaseProviderInstance DatabaseProvider
+	SqlDatabaseProviderInstance SqlDatabaseProvider
+	CqlDatabaseProviderInstance CqlDatabaseProvider
 )

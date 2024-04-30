@@ -7,8 +7,11 @@ import (
 )
 
 // Return a fiber server instance.
-func NewFiberServer() serviceAbstractions.Server {
+// requestBodyLimit sets the maximum size of a request (in bytes).
+func NewFiberServer(requestBodyLimit int) serviceAbstractions.Server {
 	return &FiberServer{
-		app: fiber.New(),
+		app: fiber.New(fiber.Config{
+			BodyLimit: requestBodyLimit,
+		}),
 	}
 }

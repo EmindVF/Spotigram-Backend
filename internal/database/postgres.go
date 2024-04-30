@@ -12,17 +12,17 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type postgresDatabaseProvider struct {
+type postgresSqlDatabaseProvider struct {
 	Db *sql.DB
 }
 
-func (p *postgresDatabaseProvider) GetDb() *sql.DB {
+func (p *postgresSqlDatabaseProvider) GetDb() *sql.DB {
 	return p.Db
 }
 
 // Initializes connected postgres database by the parameters in the config.
 func initializePostgresDatabase(cfg *config.Config, db *sql.DB) {
-	script, err := os.ReadFile(cfg.Db.InitScriptPath)
+	script, err := os.ReadFile(cfg.SqlDb.InitTableScriptPath)
 	if err != nil {
 		panic(fmt.Errorf("fatal error reading initialize postgres sql script: %v", err))
 	}

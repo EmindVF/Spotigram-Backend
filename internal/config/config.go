@@ -10,25 +10,35 @@ import (
 type (
 	Config struct {
 		App          App
-		Db           Db
+		SqlDb        SqlDb
+		CqlDb        CqlDb
 		Cache        Cache
 		AccessToken  AccessToken
 		RefreshToken RefreshToken
 	}
 
 	App struct {
-		Port int
+		Port             int
+		RequestSizeLimit int
 	}
 
-	Db struct {
-		Host           string
-		Port           int
-		User           string
-		Password       string
-		DBName         string
-		SSLMode        string
-		TimeZone       string
-		InitScriptPath string
+	SqlDb struct {
+		Host                string
+		Port                int
+		User                string
+		Password            string
+		DBName              string
+		SSLMode             string
+		TimeZone            string
+		InitTableScriptPath string
+	}
+
+	CqlDb struct {
+		Host                   string
+		Port                   int
+		KeySpace               string
+		InitKeyspaceScriptPath string
+		InitTableScriptPath    string
 	}
 
 	Cache struct {
@@ -64,18 +74,27 @@ func GetConfig() Config {
 
 	return Config{
 		App: App{
-			Port: viper.GetInt("app.server.port"),
+			Port:             viper.GetInt("app.server.port"),
+			RequestSizeLimit: viper.GetInt("app.server.request_size_limit"),
 		},
 
-		Db: Db{
-			Host:           viper.GetString("database.host"),
-			Port:           viper.GetInt("database.port"),
-			User:           viper.GetString("database.user"),
-			Password:       viper.GetString("database.password"),
-			DBName:         viper.GetString("database.dbname"),
-			SSLMode:        viper.GetString("database.sslmode"),
-			TimeZone:       viper.GetString("database.timezone"),
-			InitScriptPath: viper.GetString("database.initscriptpath"),
+		SqlDb: SqlDb{
+			Host:                viper.GetString("sql_database.host"),
+			Port:                viper.GetInt("sql_database.port"),
+			User:                viper.GetString("sql_database.user"),
+			Password:            viper.GetString("sql_database.password"),
+			DBName:              viper.GetString("sql_database.dbname"),
+			SSLMode:             viper.GetString("sql_database.sslmode"),
+			TimeZone:            viper.GetString("sql_database.timezone"),
+			InitTableScriptPath: viper.GetString("sql_database.init_table_script_path"),
+		},
+
+		CqlDb: CqlDb{
+			Host:                   viper.GetString("cql_database.host"),
+			Port:                   viper.GetInt("cql_database.port"),
+			KeySpace:               viper.GetString("cql_database.keyspace"),
+			InitKeyspaceScriptPath: viper.GetString("cql_database.init_keyspace_script_path"),
+			InitTableScriptPath:    viper.GetString("cql_database.init_table_script_path"),
 		},
 
 		Cache: Cache{

@@ -2,6 +2,6 @@ package abstractions
 
 import "database/sql"
 
-type DatabaseProvider interface {
+type SqlDatabaseProvider interface {
 	GetDb() *sql.DB
 }

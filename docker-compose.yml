@@ -1,44 +1,27 @@
 version: '3.1'
 services:
-  api:
-    build: ./
-    depends_on:
-     - db
-     - redis
+  nosqldb:
+    image: cassandra:5.0-jammy
+    restart: always
+    volumes:
+     - nosqldb-v:/var/lib/cassandra
     ports:
-    - "8080:8080"
-    networks:
-     - spotigram-net
-
-  db:
+     - "9042:9042"
+    environment:
+     CASSANDRA_CLUSTER_NAME: spotigram-cluster
+     
+  sqldb:
     image: postgres:alpine
     restart: always
     volumes:
-     - db-v:/var/lib/postgresql/data
+     - sqldb-v:/var/lib/postgresql/data
     ports:
      - "5432:5432"
     environment:
      POSTGRES_USER: admin
      POSTGRES_PASSWORD: shalala
      POSTGRES_DB: spotigram-db
-    networks:
-     - spotigram-net
     
-  pgadmin:
-    image: dpage/pgadmin4
-    depends_on:
-    - db
-    restart: always
-    volumes:
-     - pgadmin-v:/var/lib/pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: emindvf@mail.com
-      PGADMIN_DEFAULT_PASSWORD: shalala
-    ports:
-     - "5000:80"
-    networks:
-     - spotigram-net
-
   redis:
     image: redis:alpine
     container_name: redis
@@ -46,14 +29,8 @@ services:
       - '6379:6379'
     volumes:
       - redis-v:/data
-    networks:
-     - spotigram-net
-
-
+  
 volumes:
-  db-v:
-  pgadmin-v:
+  nosqldb-v:
+  sqldb-v:
   redis-v: 
-
-networks:
-  spotigram-net:

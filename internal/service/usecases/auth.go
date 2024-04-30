@@ -134,6 +134,7 @@ func SignInUser(sii models.SignInInput, cfg *config.Config) (
 }
 
 // A use case for user logout.
+// Expects access token deserialization beforehand.
 // Validates refresh token, deletes passed access and refresh tokens.
 // May return ErrUnauthorized, ErrInternal on failure.
 func Logout(loi models.LogoutInput, cfg *config.Config) error {

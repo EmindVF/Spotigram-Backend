@@ -1,16 +1,24 @@
 app:
   server:
     port: 8080
+    request_size_limit: 1048576
 
-database:
-  host: db
+sql_database:
+  host: sqldb
   port: 5432
   user: admin
   password: shalala
   dbname: spotigram-db
   sslmode: disable
   timezone: EET
-  initscriptpath: ./scripts/sql/postgres-table-setup.sql
+  init_table_script_path: ./scripts/sql/postgres-table-setup.sql
+
+cql_database:
+  host: nosqldb
+  port: 9042
+  keyspace: spotigram
+  init_keyspace_script_path: ./scripts/cql/cassandra-keyspace-setup.cql
+  init_table_script_path: ./scripts/cql/cassandra-table-setup.cql
 
 cache:
   redis_url: redis:6379
