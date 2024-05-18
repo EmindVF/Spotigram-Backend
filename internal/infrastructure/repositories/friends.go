@@ -13,7 +13,7 @@ type SqlFriendRepository struct {
 }
 
 // Returns every friend of a user by his id.
-// May return ErrInternal on failure.
+// May return ErrInternal or ErrNotFound on failure.
 func (sdm *SqlFriendRepository) GetFriends(uuid1 string, offset int) ([]models.Friend, error) {
 	var friends []models.Friend
 
@@ -138,7 +138,7 @@ func (sfm *SqlFriendRepository) AddFriend(f models.Friend) error {
 }
 
 // Deletes a friend from the repository.
-// May return ErrInternal or ErrInvalidInput on failure.
+// May return ErrInternal, ErrNotFound or ErrInvalidInput on failure.
 func (sfm *SqlFriendRepository) DeleteFriend(uuid1, uuid2 string) error {
 	db := sfm.DBProvider.GetDb()
 

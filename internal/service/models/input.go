@@ -1,8 +1,6 @@
 package models
 
-import (
-	"encoding/json"
-)
+import "encoding/json"
 
 // Fields not marked with tags are meant to be set manually.
 // Fields markes with 'json' tag are meant to be unmarshalled from the request.
@@ -149,10 +147,22 @@ type GetSongsInput struct {
 	Offset int `validate:"required" json:"offset"`
 }
 
+type GetSongFileInput struct {
+	SongId string `json:"id"`
+}
+
+type GetSongPictureInput struct {
+	SongId string `json:"id"`
+}
+
+type GetSongChunkInput struct {
+	FileName string
+}
+
 type AddSongInput struct {
 	UserId string
 	Name   string `validate:"required,min=5,max=100" json:"name"`
-	Song   []byte
+	File   []byte
 }
 
 type DeleteSongInput struct {
@@ -189,7 +199,6 @@ type DeletePlaylistSongInput struct {
 }
 
 type GetPlaylistSongsInput struct {
-	UserId         string
-	PlaylistId     string `json:"id"`
-	PlaylistSongId int64  `json:"playlist_song_id"`
+	UserId     string
+	PlaylistId string `json:"id"`
 }

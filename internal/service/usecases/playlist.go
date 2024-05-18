@@ -34,29 +34,24 @@ func GetPlaylistSongs(input models.GetPlaylistSongsInput) ([]models.Song, error)
 			Message: "invalid chat \"uuid\""}
 	}
 
-	ownerId, err := abstractions.PlaylistRepositoryInstance.
-		GetUserIdByPlaylist(input.PlaylistId)
+	playlist, err := abstractions.PlaylistRepositoryInstance.
+		GetPlaylist(input.PlaylistId)
 	if err != nil {
 		return nil, err
 	}
-	if ownerId != input.UserId {
+	if playlist.UserId != input.UserId {
 		return nil, &customerrors.ErrInvalidInput{
 			Message: "you are not the owner"}
 	}
 
-	if input.PlaylistSongId == 0 {
-		input.PlaylistSongId = 9223372036854775807
-	}
-
 	songs, err :=
 		abstractions.PlaylistSongRepositoryInstance.
-			GetPlaylistSongs(input.PlaylistId, input.PlaylistSongId)
+			GetPlaylistSongs(input.PlaylistId)
 	if err != nil {
 		return nil, err
 	}
 
 	return songs, nil
-
 }
 
 func DeletePlaylist(input models.DeletePlaylistInput) error {
@@ -69,42 +64,52 @@ func DeletePlaylist(input models.DeletePlaylistInput) error {
 			Message: "invalid playlist\"id\""}
 	}
 
-	ownerId, err := abstractions.PlaylistRepositoryInstance.
-		GetUserIdByPlaylist(input.PlaylistId)
+	playlist, err := abstractions.PlaylistRepositoryInstance.
+		GetPlaylist(input.PlaylistId)
 	if err != nil {
 		return err
 	}
 
-	if ownerId != input.UserId {
+	if playlist.UserId != input.UserId {
 		return &customerrors.ErrInvalidInput{
 			Message: "you are not the owner"}
 	}
 
 	err = abstractions.PlaylistRepositoryInstance.
 		DeletePlaylist(input.PlaylistId)
+	if err != nil {
+		return err
+	}
+
+	err = abstractions.PlaylistSongRepositoryInstance.
+		DeletePlaylistSongs(input.PlaylistId)
 
 	return err
 }
 
-func AddPlaylist(input models.AddPlaylistInput) error {
+func AddPlaylist(input models.AddPlaylistInput) (string, error) {
 	if check := utility.IsValidUUID(input.UserId); !check {
-		return &customerrors.ErrInvalidInput{
+		return "", &customerrors.ErrInvalidInput{
 			Message: "invalid \"id\""}
 	}
 
 	valid := utility.IsValidStructField(input, "Name")
 	if !valid {
-		return &customerrors.ErrInvalidInput{
-			Message: "invalid \"name\" (must be 1-100 chars long)"}
+		return "", &customerrors.ErrInvalidInput{
+			Message: "invalid \"name\" (must be 5-100 chars long)"}
 	}
+
+	uuid := utility.GenerateUUID()
 
 	err := abstractions.PlaylistRepositoryInstance.
 		AddPlaylist(models.Playlist{
-			Id:   utility.GenerateUUID(),
+			Id:   uuid,
 			Name: input.Name,
 		})
-
-	return err
+	if err != nil {
+		return "", err
+	}
+	return uuid, nil
 }
 
 func AddPlaylistSong(input models.AddPlaylistSongInput) error {
@@ -121,14 +126,25 @@ func AddPlaylistSong(input models.AddPlaylistSongInput) error {
 			Message: "invalid playlist \"id\""}
 	}
 
-	ownerId, err := abstractions.PlaylistRepositoryInstance.
-		GetUserIdByPlaylist(input.PlaylistId)
+	playlist, err := abstractions.PlaylistRepositoryInstance.
+		GetPlaylist(input.PlaylistId)
 	if err != nil {
 		return err
 	}
-	if ownerId != input.UserId {
+	if playlist.UserId != input.UserId {
 		return &customerrors.ErrInvalidInput{
 			Message: "you are not the owner"}
+	}
+
+	if playlist.Length == 100 {
+		return &customerrors.ErrInvalidInput{
+			Message: "the playlist is at max length"}
+	}
+
+	song, err := abstractions.SongRepositoryInstance.
+		GetSongInfo(input.SongId)
+	if err != nil {
+		return err
 	}
 
 	check, err := abstractions.PlaylistSongRepositoryInstance.
@@ -141,8 +157,22 @@ func AddPlaylistSong(input models.AddPlaylistSongInput) error {
 			Message: "the song is already in a playlist"}
 	}
 
+	playlist.Length++
+
+	err = abstractions.PlaylistRepositoryInstance.
+		UpdatePlaylist(*playlist)
+	if err != nil {
+		return err
+	}
+
 	err = abstractions.PlaylistSongRepositoryInstance.
-		AddPlaylistSong(input.PlaylistId, input.SongId)
+		AddPlaylistSong(models.PlaylistSong{
+			PlaylistId: input.PlaylistId,
+			SongId:     song.Id,
+			UserId:     song.CreatorId,
+			Name:       song.Name,
+			Length:     song.Length,
+		})
 
 	return err
 }
@@ -161,12 +191,12 @@ func DeletePlaylistSong(input models.DeletePlaylistSongInput) error {
 			Message: "invalid playlist \"id\""}
 	}
 
-	ownerId, err := abstractions.PlaylistRepositoryInstance.
-		GetUserIdByPlaylist(input.PlaylistId)
+	playlist, err := abstractions.PlaylistRepositoryInstance.
+		GetPlaylist(input.PlaylistId)
 	if err != nil {
 		return err
 	}
-	if ownerId != input.UserId {
+	if playlist.UserId != input.UserId {
 		return &customerrors.ErrInvalidInput{
 			Message: "you are not the owner"}
 	}
@@ -179,6 +209,14 @@ func DeletePlaylistSong(input models.DeletePlaylistSongInput) error {
 	if check {
 		return &customerrors.ErrInvalidInput{
 			Message: "the song is not in a playlist"}
+	}
+
+	playlist.Length--
+
+	err = abstractions.PlaylistRepositoryInstance.
+		UpdatePlaylist(*playlist)
+	if err != nil {
+		return err
 	}
 
 	err = abstractions.PlaylistSongRepositoryInstance.

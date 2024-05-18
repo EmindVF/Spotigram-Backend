@@ -19,28 +19,31 @@ func SignUpUser(sui models.SignUpInput) (e error) {
 	sui.Name = strings.TrimSpace(sui.Name)
 	sui.Email = strings.TrimSpace(sui.Email)
 
-	valid := utility.IsValidStructField(sui, "Name")
+	var valid bool = true
+	var errorMessage string
+	valid = valid && utility.IsValidStructField(sui, "Name")
 	if !valid {
-		return &customerrors.ErrInvalidInput{
-			Message: "invalid \"name\" (must be 8-100 chars long)"}
+		errorMessage += "invalid \"name\" (must be 8-100 chars long)\n"
 	}
 
-	valid = utility.IsValidStructField(sui, "Email")
+	valid = valid && utility.IsValidStructField(sui, "Email")
 	if !valid {
-		return &customerrors.ErrInvalidInput{
-			Message: "invalid \"email\" (must be 5-100 chars long)"}
+		errorMessage += "invalid \"email\" (must be 5-100 chars long)\n"
 	}
 
-	valid = utility.IsValidStructField(sui, "Password")
+	valid = valid && utility.IsValidStructField(sui, "Password")
 	if !valid {
-		return &customerrors.ErrInvalidInput{
-			Message: "invalid \"password\" (must be 8-72 chars long)"}
+		errorMessage += "invalid \"password\" (must be 8-72 chars long)\n"
 	}
 
-	valid = utility.IsValidStructField(sui, "PasswordConfirmed")
+	valid = valid && utility.IsValidStructField(sui, "PasswordConfirmed")
+	if !valid {
+		errorMessage += "invalid \"password_confirmed\" (must be 8-72 chars long)\n"
+	}
+
 	if !valid {
 		return &customerrors.ErrInvalidInput{
-			Message: "invalid \"password_confirmed\" (must be 8-72 chars long)"}
+			Message: errorMessage}
 	}
 
 	if sui.Password != sui.PasswordConfirmed {
@@ -112,7 +115,7 @@ func SignInUser(sii models.SignInInput, cfg *config.Config) (
 		return "", nil, nil, &customerrors.ErrInternal{Message: err.Error()}
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	err = abstractions.JWTCacheInstance.SetToken(
 		accessTD.TokenUUID,

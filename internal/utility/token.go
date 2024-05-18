@@ -1,7 +1,6 @@
 package utility
 
 import (
-	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -17,7 +16,7 @@ type TokenDetails struct {
 }
 
 // Creates a JWT, returning its details.
-func CreateToken(uuid string, ttl time.Duration, privateKey string) (*TokenDetails, error) {
+func CreateToken(uuid string, ttl time.Duration, privateKey []byte) (*TokenDetails, error) {
 	now := time.Now().UTC()
 	td := &TokenDetails{
 		ExpiresIn: now.Add(ttl).Unix(),
@@ -25,12 +24,7 @@ func CreateToken(uuid string, ttl time.Duration, privateKey string) (*TokenDetai
 		UserUUID:  uuid,
 	}
 
-	decodedPrivateKey, err := base64.StdEncoding.DecodeString(privateKey)
-	if err != nil {
-		panic(fmt.Errorf("error decoding private key: %v", err))
-	}
-
-	key, err := jwt.ParseRSAPrivateKeyFromPEM(decodedPrivateKey)
+	key, err := jwt.ParseRSAPrivateKeyFromPEM(privateKey)
 	if err != nil {
 		panic(fmt.Errorf("error parsing private key to jwt: %v", err))
 	}
@@ -51,13 +45,8 @@ func CreateToken(uuid string, ttl time.Duration, privateKey string) (*TokenDetai
 
 // Validates a JWT, returning its details, containing
 // only UserUUID and TokenUUID.
-func ValidateToken(token string, publicKey string) (*TokenDetails, error) {
-	decodedPublicKey, err := base64.StdEncoding.DecodeString(publicKey)
-	if err != nil {
-		panic(fmt.Errorf("error decoding public key: %v", err))
-	}
-
-	key, err := jwt.ParseRSAPublicKeyFromPEM(decodedPublicKey)
+func ValidateToken(token string, publicKey []byte) (*TokenDetails, error) {
+	key, err := jwt.ParseRSAPublicKeyFromPEM(publicKey)
 	if err != nil {
 		panic(fmt.Errorf("error parsing public key to jwt: %v", err))
 	}

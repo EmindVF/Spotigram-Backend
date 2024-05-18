@@ -13,7 +13,7 @@ type SqlFriendRequestRepository struct {
 }
 
 // Returns every friend request sent by a user.
-// May return ErrInternal on failure.
+// May return ErrInternal or ErrNotFound on failure.
 func (sfrr *SqlFriendRequestRepository) GetFriendRequestsSent(uuid1 string, offset int) ([]models.FriendRequest, error) {
 	if offset < 0 {
 		return nil, &customerrors.ErrInternal{Message: "invalid offset"}
@@ -53,7 +53,7 @@ func (sfrr *SqlFriendRequestRepository) GetFriendRequestsSent(uuid1 string, offs
 }
 
 // Returns every friend request recieved by a user.
-// May return ErrInternal on failure.
+// May return ErrInternal or ErrNotFound on failure.
 func (sfrr *SqlFriendRequestRepository) GetFriendRequestsReceived(uuid1 string, offset int) ([]models.FriendRequest, error) {
 	if offset < 0 {
 		return nil, &customerrors.ErrInternal{Message: "invalid offset"}
@@ -133,7 +133,7 @@ func (sdm *SqlFriendRequestRepository) UpdateIsIgnored(sender, recipient string,
 }
 
 // Deletes a friend request from the repository.
-// May return ErrInternal or ErrInvalidInput on failure.
+// May return ErrInternal, ErrNotFound or ErrInvalidInput on failure.
 func (sfm *SqlFriendRequestRepository) DeleteFriendRequest(sender, recipient string) error {
 	db := sfm.DBProvider.GetDb()
 

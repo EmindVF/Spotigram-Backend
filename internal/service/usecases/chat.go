@@ -44,43 +44,44 @@ func GetMessages(input models.GetMessagesInput) ([]models.Message, error) {
 
 // A use case to send a message
 // Returns the uuid of the recipient
-func SendMessage(smi models.Message) (string, error) {
+func SendMessage(smi models.Message) (string, *models.Message, error) {
 	if check := utility.IsValidUUID(smi.UserId); !check {
-		return "", &customerrors.ErrInvalidInput{
+		return "", nil, &customerrors.ErrInvalidInput{
 			Message: "invalid user \"uuid\""}
 	}
 	if check := utility.IsValidUUID(smi.ChatId); !check {
-		return "", &customerrors.ErrInvalidInput{
+		return "", nil, &customerrors.ErrInvalidInput{
 			Message: "invalid chat \"uuid\""}
 	}
 	if len(smi.Content) > 2048 || len(smi.Content) == 0 {
-		return "", &customerrors.ErrInvalidInput{
+		return "", nil, &customerrors.ErrInvalidInput{
 			Message: "message is too long"}
 	}
 	friend, err := abstractions.FriendRepositoryInstance.GetFriendByChatId(smi.ChatId)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	var uuidRecipient string
 
 	if smi.UserId == friend.Id1 {
 		uuidRecipient = friend.Id2
-		smi.TimeId = time.Now().UnixMicro()*10 + 1
+		smi.TimeId = time.Now().UTC().UnixMicro()*10 + 1
 	} else if smi.UserId == friend.Id2 {
 		uuidRecipient = friend.Id1
-		smi.TimeId = time.Now().UnixMicro()*10 + 2
+		smi.TimeId = time.Now().UTC().UnixMicro()*10 + 2
 	} else {
-		return "", &customerrors.ErrInvalidInput{
+		return "", nil, &customerrors.ErrInvalidInput{
 			Message: "user is not a member of this chat"}
 	}
+	smi.Date = time.Now().UTC()
 
 	err = abstractions.ChatRepositoryInstance.AddMessage(smi)
 	if err != nil {
-		return "", nil
+		return "", nil, nil
 	}
 
-	return uuidRecipient, nil
+	return uuidRecipient, &smi, nil
 }
 
 // A use case to delete a message

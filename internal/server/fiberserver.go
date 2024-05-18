@@ -60,6 +60,21 @@ func (s *FiberServer) Start() {
 	user.Get("/public-key", middleware.DeserializeTokenHandler, controllers.UserPublicKeyHandler)
 	user.Get("/picture", middleware.DeserializeTokenHandler, controllers.UserPictureHandler)
 
+	playlist := s.app.Group("/playlist")
+	playlist.Get("/all", middleware.DeserializeTokenHandler, controllers.PlaylistsHandler)
+	playlist.Get("/songs", middleware.DeserializeTokenHandler, controllers.PlaylistSongsHandler)
+	playlist.Post("/create", middleware.DeserializeTokenHandler, controllers.AddPlaylistHandler)
+	playlist.Delete("/delete", middleware.DeserializeTokenHandler, controllers.DeletePlaylistHandler)
+	playlist.Post("/add-song", middleware.DeserializeTokenHandler, controllers.AddPlaylistSongHandler)
+	playlist.Delete("/delete-song", middleware.DeserializeTokenHandler, controllers.DeletePlaylistSongHandler)
+
+	song := s.app.Group("/song")
+	song.Get("/all", middleware.DeserializeTokenHandler, controllers.SongsHandler)
+	song.Get("/picture", middleware.DeserializeTokenHandler, controllers.SongPictureHandler)
+	song.Get("/download", middleware.DeserializeTokenHandler, controllers.DownloadSongHandler)
+	song.Get("/stream/:filename", middleware.DeserializeTokenHandler, controllers.GetSongChunk)
+	song.Post("/upload/:songname", middleware.DeserializeTokenHandler, controllers.UploadSongHandler)
+
 	chat := s.app.Group("/chat")
 	chat.Get("/messages", middleware.DeserializeTokenHandler, controllers.ChatMessagesHandler)
 

@@ -14,6 +14,8 @@ var PlaylistSongRepositoryInstance PlaylistSongRepository
 
 var SongRepositoryInstance SongRepository
 
+var SongChunkRepositoryInstance SongChunkRepository
+
 var ServerInstance Server
 
 var JWTCacheInstance JWTCache

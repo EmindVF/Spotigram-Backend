@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"encoding/json"
+	"time"
 
 	"spotigram/internal/service/models"
 	"spotigram/internal/service/usecases"
@@ -16,9 +17,14 @@ type responceContext struct {
 	ReceiverUUID string
 }
 
-type errorResponce struct {
+type echoResponce struct {
 	Status  string `json:"status"`
 	Content string `json:"content"`
+}
+
+type notificationResponce struct {
+	Status  string          `json:"status"`
+	Content json.RawMessage `json:"content"`
 }
 
 var (
@@ -29,16 +35,16 @@ var (
 )
 
 func RunChatHub() {
+	ticker := time.NewTicker(3 * time.Minute)
 	for {
 		select {
 		// Connect
 		case connection := <-register:
 			if _, ok := connections[connection.Locals("user_uuid").(string)]; ok {
-				connection.WriteMessage(websocket.CloseMessage, []byte{})
-				connection.Close()
-			} else {
-				connections[connection.Locals("user_uuid").(string)] = connection
+				connections[connection.Locals("user_uuid").(string)].
+					WriteMessage(websocket.CloseMessage, []byte{})
 			}
+			connections[connection.Locals("user_uuid").(string)] = connection
 
 		// Send message
 		case ctx := <-broadcast:
@@ -53,9 +59,16 @@ func RunChatHub() {
 				connection.WriteMessage(websocket.CloseMessage, []byte{})
 				connection.Close()
 			}
+
 		// Disconnect
 		case connection := <-unregister:
 			delete(connections, connection.Locals("user_uuid").(string))
+
+		// Send pings
+		case <-ticker.C:
+			for _, c := range connections {
+				c.WriteMessage(websocket.TextMessage, []byte("ping"))
+			}
 		}
 	}
 }
@@ -69,7 +82,7 @@ func WebsocketChatUpgradeHandler(c *fiber.Ctx) error {
 }
 
 func sendError(message string, uuid string) {
-	errorMessage, _ := json.Marshal(errorResponce{
+	errorMessage, _ := json.Marshal(echoResponce{
 		Status:  "fail",
 		Content: message,
 	})
@@ -81,7 +94,7 @@ func sendError(message string, uuid string) {
 }
 
 func sendOk(uuid string) {
-	errorMessage, _ := json.Marshal(errorResponce{
+	errorMessage, _ := json.Marshal(echoResponce{
 		Status: "ok",
 	})
 	broadcast <- responceContext{
@@ -91,8 +104,8 @@ func sendOk(uuid string) {
 	}
 }
 
-func sendNotification(status, message string, uuid string) {
-	errorMessage, _ := json.Marshal(errorResponce{
+func sendNotification(status string, message json.RawMessage, uuid string) {
+	errorMessage, _ := json.Marshal(notificationResponce{
 		Status:  status,
 		Content: message,
 	})
@@ -104,13 +117,10 @@ func sendNotification(status, message string, uuid string) {
 }
 
 func WebsocketChatLoop(c *websocket.Conn) {
-	defer func() {
-		unregister <- c
-		c.Close()
-	}()
 	register <- c
-
 	userUUID := c.Locals("user_uuid").(string)
+
+	c.SetReadLimit(256 * 1024)
 
 	var (
 		mt  int
@@ -119,9 +129,16 @@ func WebsocketChatLoop(c *websocket.Conn) {
 	)
 
 	for {
+		c.SetReadDeadline(time.Now().Add(5 * time.Minute))
 		mt, msg, err = c.ReadMessage()
 		if err != nil {
-			return
+			break
+		}
+
+		if mt == websocket.TextMessage && len(msg) < 10 {
+			if string(msg) == "pong" {
+				continue
+			}
 		}
 
 		if mt == websocket.TextMessage {
@@ -140,9 +157,7 @@ func WebsocketChatLoop(c *websocket.Conn) {
 			// Action cases
 			switch payload.Action {
 			case "send-friend-request":
-				var input = models.AddFriendRequestInput{
-					SenderUUID: c.Locals("user_uuid").(string),
-				}
+				var input = models.AddFriendRequestInput{}
 				err := json.Unmarshal(payload.Content, &input)
 				if err != nil {
 					sendError("invalid \"content\"", userUUID)
@@ -152,6 +167,8 @@ func WebsocketChatLoop(c *websocket.Conn) {
 					sendError("invalid \"id\"", userUUID)
 					continue
 				}
+
+				input.SenderUUID = c.Locals("user_uuid").(string)
 
 				err = usecases.AddFriendRequest(input)
 				if err != nil {
@@ -167,24 +184,24 @@ func WebsocketChatLoop(c *websocket.Conn) {
 				})
 				sendNotification(
 					"friend-request-received",
-					string(notificationMessage),
+					notificationMessage,
 					input.RecipientUUID)
 
 				sendOk(userUUID)
 
 			case "delete-friend-request":
-				var input = models.DeleteFriendRequestInput{
-					SenderUUID: c.Locals("user_uuid").(string),
-				}
+				var input = models.DeleteFriendRequestInput{}
 				err := json.Unmarshal(payload.Content, &input)
 				if err != nil {
-					sendError("invalid \"content\"", userUUID)
+					sendError("invalid \"const\"", userUUID)
 					continue
 				}
 				if input.RecipientUUID == "" {
 					sendError("invalid \"id\"", userUUID)
 					continue
 				}
+
+				input.SenderUUID = c.Locals("user_uuid").(string)
 
 				err = usecases.DeleteFriendRequest(input)
 				if err != nil {
@@ -200,15 +217,13 @@ func WebsocketChatLoop(c *websocket.Conn) {
 				})
 				sendNotification(
 					"friend-request-deleted",
-					string(notificationMessage),
+					notificationMessage,
 					input.RecipientUUID)
 
 				sendOk(userUUID)
 
 			case "update-friend-request":
-				var input = models.UpdateFriendRequestInput{
-					RecipientUUID: c.Locals("user_uuid").(string),
-				}
+				var input = models.UpdateFriendRequestInput{}
 				err := json.Unmarshal(payload.Content, &input)
 				if err != nil {
 					sendError("invalid \"content\"", userUUID)
@@ -218,6 +233,8 @@ func WebsocketChatLoop(c *websocket.Conn) {
 					sendError("invalid \"id\"", userUUID)
 					continue
 				}
+
+				input.RecipientUUID = c.Locals("user_uuid").(string)
 
 				err = usecases.UpdateFriendRequest(input)
 				if err != nil {
@@ -233,15 +250,13 @@ func WebsocketChatLoop(c *websocket.Conn) {
 				})
 				sendNotification(
 					"friend-request-updated",
-					string(notificationMessage),
+					notificationMessage,
 					input.SenderUUID)
 
 				sendOk(userUUID)
 
 			case "accept-friend-request":
-				var input = models.AcceptFriendRequestInput{
-					RecipientUUID: c.Locals("user_uuid").(string),
-				}
+				var input = models.AcceptFriendRequestInput{}
 				err := json.Unmarshal(payload.Content, &input)
 				if err != nil {
 					sendError("invalid \"content\"", userUUID)
@@ -251,6 +266,7 @@ func WebsocketChatLoop(c *websocket.Conn) {
 					sendError("invalid \"id\"", userUUID)
 					continue
 				}
+				input.RecipientUUID = c.Locals("user_uuid").(string)
 
 				newFriend, err := usecases.AcceptFriendRequest(input)
 				if err != nil {
@@ -262,15 +278,18 @@ func WebsocketChatLoop(c *websocket.Conn) {
 				notificationMessage, _ := json.Marshal(newFriend)
 				sendNotification(
 					"friend-request-accepted",
-					string(notificationMessage),
+					notificationMessage,
 					input.SenderUUID)
 
 				sendOk(userUUID)
 
+				sendNotification(
+					"friend-added",
+					notificationMessage,
+					userUUID)
+
 			case "delete-friend":
-				var input = models.DeleteFriendInput{
-					User1UUID: c.Locals("user_uuid").(string),
-				}
+				var input = models.DeleteFriendInput{}
 				err := json.Unmarshal(payload.Content, &input)
 				if err != nil {
 					sendError("invalid \"content\"", userUUID)
@@ -280,6 +299,8 @@ func WebsocketChatLoop(c *websocket.Conn) {
 					sendError("invalid \"id\"", userUUID)
 					continue
 				}
+
+				input.User1UUID = c.Locals("user_uuid").(string)
 
 				err = usecases.DeleteFriend(input)
 				if err != nil {
@@ -295,44 +316,47 @@ func WebsocketChatLoop(c *websocket.Conn) {
 				})
 				sendNotification(
 					"friend-deleted",
-					string(notificationMessage),
+					notificationMessage,
 					input.User2UUID)
 
 				sendOk(userUUID)
 
 			case "send-message":
-				var input = models.Message{
-					UserId: c.Locals("user_uuid").(string),
-				}
+				var input = models.Message{}
 				err := json.Unmarshal(payload.Content, &input)
+				input.UserId = c.Locals("user_uuid").(string)
 				if err != nil {
 					sendError("invalid \"content\"", userUUID)
 					continue
 				}
+
 				if input.ChatId == "" {
 					sendError("invalid chat \"id\"", userUUID)
 					continue
 				}
 
-				recipientUUID, err := usecases.SendMessage(input)
+				recipientUUID, message, err := usecases.SendMessage(input)
 				if err != nil {
 					sendError(err.Error(), userUUID)
 					continue
 				}
 
 				// Notify user
-				notificationMessage, _ := json.Marshal(input)
+				notificationMessage, _ := json.Marshal(message)
 				sendNotification(
 					"message-received",
-					string(notificationMessage),
+					notificationMessage,
 					recipientUUID)
 
 				sendOk(userUUID)
 
+				sendNotification(
+					"message-received",
+					notificationMessage,
+					userUUID)
+
 			case "delete-message":
-				var input = models.DeleteMessageInput{
-					UserId: c.Locals("user_uuid").(string),
-				}
+				var input = models.DeleteMessageInput{}
 				err := json.Unmarshal(payload.Content, &input)
 				if err != nil {
 					sendError("invalid \"content\"", userUUID)
@@ -342,7 +366,7 @@ func WebsocketChatLoop(c *websocket.Conn) {
 					sendError("invalid chat \"id\"", userUUID)
 					continue
 				}
-
+				input.UserId = c.Locals("user_uuid").(string)
 				recipientUUID, err := usecases.DeleteMessage(input)
 				if err != nil {
 					sendError(err.Error(), userUUID)
@@ -353,7 +377,7 @@ func WebsocketChatLoop(c *websocket.Conn) {
 				notificationMessage, _ := json.Marshal(input)
 				sendNotification(
 					"message-deleted",
-					string(notificationMessage),
+					notificationMessage,
 					recipientUUID)
 
 				sendOk(userUUID)
@@ -365,4 +389,7 @@ func WebsocketChatLoop(c *websocket.Conn) {
 			sendError("invalid websocket message type", userUUID)
 		}
 	}
+
+	unregister <- c
+	c.Close()
 }

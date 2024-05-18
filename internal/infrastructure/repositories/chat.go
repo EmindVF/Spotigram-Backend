@@ -38,7 +38,7 @@ func (ccr *CqlChatRepository) AddMessage(m models.Message) error {
 }
 
 // Gets at most 100 messages of the chat with offset.
-// May return ErrInternal on failure.
+// May return ErrInternal or ErrNotFound on failure.
 func (ccr *CqlChatRepository) GetMessages(chatId string, timeId int64) ([]models.Message, error) {
 	session := ccr.DBProvider.GetSession()
 

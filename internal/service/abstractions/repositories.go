@@ -81,6 +81,7 @@ type FriendRepository interface {
 
 	// Returns a friend by chat id.
 	// UUID validation is not provided.
+	// May return ErrInternal or ErrNotFound on failure.
 	GetFriendByChatId(uuid string) (f *models.Friend, e error)
 
 	// Adds friend to the repository.
@@ -90,7 +91,7 @@ type FriendRepository interface {
 
 	// Deletes a friend from the repository.
 	// UUID sort is provided.
-	// May return ErrInternal or ErrInvalidInput on failure.
+	// May return ErrInternal, ErrNotFound or ErrInvalidInput on failure.
 	DeleteFriend(uuid1, uuid2 string) error
 
 	// Returns bool on whether the friend is present.
@@ -110,7 +111,7 @@ type FriendRequestRepository interface {
 	UpdateIsIgnored(senderUUID, recipientUUID string, isIgnored bool) error
 
 	// Deletes friend request from the repository.
-	// May return ErrInternal or ErrNotFound on failure.
+	// May return ErrInternal, ErrInvalidInput or ErrNotFound on failure.
 	DeleteFriendRequest(senderUUID, recipientUUID string) error
 
 	// Returns a user's sent friend requests by its uuid.
@@ -132,41 +133,45 @@ type FriendRequestRepository interface {
 type ChatRepository interface {
 	// Deletes a whole chat from the repository by its id.
 	// UUID validation is not provided.
-	// May return ErrInternal on failure.
+	// May return ErrInternal or ErrNotFound on failure.
 	DeleteChat(uuid string) error
 
 	// Returns first 100 messages before a certain time id.
-	// UUID validation is not provided
-	// May return ErrInternal
+	// UUID validation is not provided.
+	// May return ErrInternal or ErrNotFound on failure.
 	GetMessages(chatId string, timeId int64) ([]models.Message, error)
 
-	// Deletes a message from the chat by chat and message ids.
+	// Adds a message to the repository.
 	// UUID validation is not provided.
 	// May return ErrInternal on failure.
 	AddMessage(message models.Message) error
 
 	// Deletes a message from the chat by chat and message time ids.
 	// UUID validation is not provided.
-	// May return ErrInternal on failure.
+	// May return ErrInternal or ErrNotFound on failure.
 	DeleteMessage(chatId string, timeId int64) error
 }
 
 type PlaylistRepository interface {
 	// Returns first 100 messages before a certain time id.
-	// UUID validation is not provided
-	// May return ErrInternal
+	// UUID validation is not provided.
+	// May return ErrInternal.
 	GetPlaylists(userId string, offset int) ([]models.Playlist, error)
 
-	// Returns the user id of playlist creator by its id.
+	// Returns the playlist by its id.
+	// UUID validation is not provided.
+	GetPlaylist(playlistId string) (*models.Playlist, error)
+
+	// Returns the playlist by its id.
 	// UUID validation is not provided
-	GetUserIdByPlaylist(playlistId string) (string, error)
+	UpdatePlaylist(models.Playlist) error
 
 	// Adds a playlist.
-	// May return ErrInternal or ErrInvalidInput
+	// May return ErrInternal or ErrInvalidInput.
 	AddPlaylist(models.Playlist) error
 
 	// Deletes a playlist.
-	// May return ErrInternal or ErrNotFound
+	// May return ErrInternal or ErrNotFound.
 	DeletePlaylist(playlistId string) error
 }
 
@@ -175,18 +180,22 @@ type PlaylistSongRepository interface {
 	// May return ErrInternal of ErrNotFound
 	IsSongInPlaylist(playlistId string, songId string) (bool, error)
 
-	// Adds a song to a playlist
-	// May return ErrInternal
-	AddPlaylistSong(playlistId string, songId string) error
+	// Adds a song to a playlist.
+	// May return ErrInternal.
+	AddPlaylistSong(playlistSong models.PlaylistSong) error
 
-	// Adds a song to a playlist
-	// May return ErrInternal
+	// Deletes a song from a playlist.
+	// May return ErrInternal.
 	DeletePlaylistSong(playlistId string, songId string) error
 
-	// Returns first 100 playlist songs before a certain playlist song id.
+	// Adds all songs to a playlist.
+	// May return ErrInternal.
+	DeletePlaylistSongs(playlistId string) error
+
+	// Returns first 100 playlist songs.
 	// UUID validation is not provided
 	// May return Err internal
-	GetPlaylistSongs(playlistId string, playlistSongId int64) ([]models.Song, error)
+	GetPlaylistSongs(playlistId string) ([]models.Song, error)
 }
 
 type SongRepository interface {
@@ -195,11 +204,40 @@ type SongRepository interface {
 	// May return ErrInternal
 	GetSongs(offset int) ([]models.Song, error)
 
+	// Returns songs info by its id.
+	// UUID validation is not provided.
+	// May return ErrInternal.
+	GetSongInfo(songId string) (*models.Song, error)
+
+	// Returns songs file by its id.
+	// UUID validation is not provided.
+	// May return ErrInternal or ErrNotFound on failure.
+	GetSongFile(songId string) ([]byte, error)
+
+	// Returns a song's picture by its uuid.
+	// UUID validation is not provided.
+	// May return ErrInternal or ErrNotFound on failure.
+	GetPicture(songId string) ([]byte, error)
+
 	// Adds song to the repository.
 	// May return ErrInternal or ErrInvalidInput on failure.
-	AddSong(song models.Song) error
+	AddSong(song models.Song, picture []byte, file []byte) error
 
 	// Deletes a song from the repository.
 	// May return ErrInternal or ErrNotFound on failure.
 	DeleteSong(songId string) error
+}
+
+type SongChunkRepository interface {
+	// Uploads song chunk to the repository.
+	// May return ErrInternal on failure.
+	AddSongChunk(songId string, id int, chunk []byte) error
+
+	// Uploads a song chunks to the repository.
+	// May return ErrInternal or ErrNotFound on failure.
+	GetSongChunk(songId string, index int) ([]byte, error)
+
+	// Deletes a song from the repository.
+	// May return ErrInternal or ErrNotFound on failure.
+	DeleteSongChunks(songId string) error
 }

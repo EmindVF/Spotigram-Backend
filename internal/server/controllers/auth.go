@@ -73,7 +73,7 @@ func SignInHandler(ctx *fiber.Ctx) error {
 	})
 
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-		"uuid": userUuid})
+		"id": userUuid})
 }
 
 // A handler for user logout.

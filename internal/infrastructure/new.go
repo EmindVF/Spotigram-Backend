@@ -29,3 +29,27 @@ func NewCqlChatRepository() serviceAbstractions.ChatRepository {
 	return &repositories.CqlChatRepository{
 		DBProvider: infrastructureAbstractions.CqlDatabaseProviderInstance}
 }
+
+// Returns an sql playlist repository.
+func NewSqlPlaylistRepository() serviceAbstractions.PlaylistRepository {
+	return &repositories.SqlPlaylistRepository{
+		DBProvider: infrastructureAbstractions.SqlDatabaseProviderInstance}
+}
+
+// Returns an cql chat repository.
+func NewCqlPlaylistSongRepository() serviceAbstractions.PlaylistSongRepository {
+	return &repositories.CqlPlaylistSongRepository{
+		DBProvider: infrastructureAbstractions.CqlDatabaseProviderInstance}
+}
+
+// Returns an sql playlist repository.
+func NewSqlSongRepository() serviceAbstractions.SongRepository {
+	return &repositories.SqlSongRepository{
+		DBProvider: infrastructureAbstractions.SqlDatabaseProviderInstance}
+}
+
+// Returns an cql chat repository.
+func NewCqlSongChunkRepository() serviceAbstractions.SongChunkRepository {
+	return &repositories.CqlSongChunkRepository{
+		DBProvider: infrastructureAbstractions.CqlDatabaseProviderInstance}
+}

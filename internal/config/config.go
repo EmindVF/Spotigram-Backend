@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -46,17 +47,21 @@ type (
 	}
 
 	AccessToken struct {
-		PublicKey  string
-		PrivateKey string
-		ExpiresIn  time.Duration
-		MaxAge     int
+		PublicKeyPath  string
+		PublicKey      []byte
+		PrivateKeyPath string
+		PrivateKey     []byte
+		ExpiresIn      time.Duration
+		MaxAge         int
 	}
 
 	RefreshToken struct {
-		PublicKey  string
-		PrivateKey string
-		ExpiresIn  time.Duration
-		MaxAge     int
+		PublicKeyPath  string
+		PublicKey      []byte
+		PrivateKeyPath string
+		PrivateKey     []byte
+		ExpiresIn      time.Duration
+		MaxAge         int
 	}
 )
 
@@ -72,7 +77,7 @@ func GetConfig() Config {
 		panic(fmt.Errorf("fatal error config file: %v", err))
 	}
 
-	return Config{
+	cfg := Config{
 		App: App{
 			Port:             viper.GetInt("app.server.port"),
 			RequestSizeLimit: viper.GetInt("app.server.request_size_limit"),
@@ -102,17 +107,37 @@ func GetConfig() Config {
 		},
 
 		AccessToken: AccessToken{
-			PrivateKey: viper.GetString("access_token.private_key"),
-			PublicKey:  viper.GetString("access_token.public_key"),
-			ExpiresIn:  viper.GetDuration("access_token.expires_in"),
-			MaxAge:     viper.GetInt("access_token.max_age"),
+			PrivateKeyPath: viper.GetString("access_token.private_key_path"),
+			PublicKeyPath:  viper.GetString("access_token.public_key_path"),
+			ExpiresIn:      viper.GetDuration("access_token.expires_in"),
+			MaxAge:         viper.GetInt("access_token.max_age"),
 		},
 
 		RefreshToken: RefreshToken{
-			PrivateKey: viper.GetString("refresh_token.private_key"),
-			PublicKey:  viper.GetString("refresh_token.public_key"),
-			ExpiresIn:  viper.GetDuration("refresh_token.expires_in"),
-			MaxAge:     viper.GetInt("refresh_token.max_age"),
+			PrivateKeyPath: viper.GetString("refresh_token.private_key_path"),
+			PublicKeyPath:  viper.GetString("refresh_token.public_key_path"),
+			ExpiresIn:      viper.GetDuration("refresh_token.expires_in"),
+			MaxAge:         viper.GetInt("refresh_token.max_age"),
 		},
 	}
+
+	cfg.AccessToken.PublicKey, err = os.ReadFile(cfg.AccessToken.PublicKeyPath)
+	if err != nil {
+		panic(fmt.Errorf("fatal error reading config files: %v", err))
+	}
+	cfg.AccessToken.PrivateKey, err = os.ReadFile(cfg.AccessToken.PrivateKeyPath)
+	if err != nil {
+		panic(fmt.Errorf("fatal error reading config files: %v", err))
+	}
+
+	cfg.RefreshToken.PublicKey, err = os.ReadFile(cfg.RefreshToken.PublicKeyPath)
+	if err != nil {
+		panic(fmt.Errorf("fatal error reading config files: %v", err))
+	}
+	cfg.RefreshToken.PrivateKey, err = os.ReadFile(cfg.AccessToken.PrivateKeyPath)
+	if err != nil {
+		panic(fmt.Errorf("fatal error reading config files: %v", err))
+	}
+
+	return cfg
 }

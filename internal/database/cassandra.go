@@ -37,6 +37,7 @@ func initializeCassandraKeyspace(cfg *config.Config, s *gocql.Session) {
 	}
 }
 
+// Initializes connected cassandra database tables.
 func initializeCassandraTable(cfg *config.Config, s *gocql.Session) {
 	script, err := os.ReadFile(cfg.CqlDb.InitTableScriptPath)
 	if err != nil {

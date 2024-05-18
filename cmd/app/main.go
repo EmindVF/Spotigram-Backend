@@ -34,6 +34,18 @@ func main() {
 	serviceAbstractions.ChatRepositoryInstance =
 		infrastructure.NewCqlChatRepository()
 
+	serviceAbstractions.PlaylistRepositoryInstance =
+		infrastructure.NewSqlPlaylistRepository()
+
+	serviceAbstractions.PlaylistSongRepositoryInstance =
+		infrastructure.NewCqlPlaylistSongRepository()
+
+	serviceAbstractions.SongRepositoryInstance =
+		infrastructure.NewSqlSongRepository()
+
+	serviceAbstractions.SongChunkRepositoryInstance =
+		infrastructure.NewCqlSongChunkRepository()
+
 	cache.ConnectRedis(&cfg)
 	serviceAbstractions.JWTCacheInstance = cache.NewJWTCache()
 	defer cache.RedisClient.Close()

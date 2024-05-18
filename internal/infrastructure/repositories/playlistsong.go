@@ -3,6 +3,7 @@ package repositories
 import (
 	"spotigram/internal/customerrors"
 	"spotigram/internal/infrastructure/abstractions"
+	"spotigram/internal/service/models"
 
 	"github.com/gocql/gocql"
 )
@@ -11,19 +12,22 @@ type CqlPlaylistSongRepository struct {
 	DBProvider abstractions.CqlDatabaseProvider
 }
 
-// Adds a message to the repository.
+// Adds a song to the playlist.
 // May return ErrInternal on failure.
-func (cps *CqlPlaylistSongRepository) AddPlaylistSong(playlistId, songId string) error {
+func (cps *CqlPlaylistSongRepository) AddPlaylistSong(playlistSong models.PlaylistSong) error {
 	session := cps.DBProvider.GetSession()
 
 	insertStmt := session.Query(`
-		INSERT INTO playlist_songs (playlist_id, song_id)
-		VALUES (?, ?)
+		INSERT INTO playlist_songs (playlist_id, song_id, user_id, name, length)
+		VALUES (?, ?, ?, ?)
 	`)
 
 	err := insertStmt.Bind(
-		playlistId,
-		songId,
+		playlistSong.PlaylistId,
+		playlistSong.SongId,
+		playlistSong.UserId,
+		playlistSong.Name,
+		playlistSong.Length,
 	).Exec()
 
 	if err != nil {
@@ -33,8 +37,8 @@ func (cps *CqlPlaylistSongRepository) AddPlaylistSong(playlistId, songId string)
 	return nil
 }
 
-// Adds a message to the repository.
-// May return ErrInternal on failure.
+// Deletes a song from the repository.
+// May return ErrInternal or ErrNotFound on failure.
 func (cps *CqlPlaylistSongRepository) DeletePlaylistSong(playlistId, songId string) error {
 	session := cps.DBProvider.GetSession()
 
@@ -52,35 +56,53 @@ func (cps *CqlPlaylistSongRepository) DeletePlaylistSong(playlistId, songId stri
 	return nil
 }
 
-/*
-// Returns first 100 playlist songs before a certain playlist song id.
+// Deletes a song from the repository.
+// May return ErrInternal or ErrNotFound on failure.
+func (cps *CqlPlaylistSongRepository) DeletePlaylistSongs(playlistId string) error {
+	session := cps.DBProvider.GetSession()
+
+	stmt :=
+		session.Query("DELETE FROM playlist_songs WHERE playlist_id = ?",
+			playlistId)
+
+	if err := stmt.Exec(); err != nil {
+		if err == gocql.ErrNotFound {
+			return &customerrors.ErrNotFound{Message: err.Error()}
+		}
+		return &customerrors.ErrInternal{Message: err.Error()}
+	}
+
+	return nil
+}
+
+// Returns first 100 playlist songs.
 // UUID validation is not provided
 // May return Err internal
-func (cps *CqlPlaylistSongRepository) GetPlaylistSongs(playlistId string, playlistSongId int64) ([]models.Song, error) {
+func (cps *CqlPlaylistSongRepository) GetPlaylistSongs(playlistId string) ([]models.Song, error) {
 	session := cps.DBProvider.GetSession()
 
 	var songs []models.Song
 
 	iter := session.Query(`
-		SELECT user_id, chat_id, content, time_id, encrypted
+		SELECT song_id, user_id, name, length
 		FROM playlist_songs
-		WHERE playlist_id = ? AND id < ?
+		WHERE playlist_id = ? 
 		LIMIT 100
-		`, playlistId, playlistSongId).Iter()
+		`, playlistId).Iter()
 
 	var (
-		user_id   string
-		chat_id   string
-		content   string
-		time_id   int64
-		encrypted bool
+		song_id string
+		user_id string
+		name    string
+		length  int
 	)
 
-	for iter.Scan(&user_id, &chat_id, &content, &time_id, &encrypted) {
+	for iter.Scan(&song_id, &user_id, &name, &length) {
 		songs = append(songs, models.Song{
-			UserId:  user_id,
-			ChatId:  chat_id,
-			Content: content,
+			Id:        song_id,
+			CreatorId: user_id,
+			Name:      name,
+			Length:    length,
 		})
 	}
 
@@ -97,4 +119,36 @@ func (cps *CqlPlaylistSongRepository) GetPlaylistSongs(playlistId string, playli
 
 	return songs, nil
 }
-*/
+
+// Checks if the song is in a playlist.
+// May return ErrInternal or ErrNotFound on failure.
+func (ccr *CqlPlaylistSongRepository) IsSongInPlaylist(playlistId string, songId string) (bool, error) {
+	session := ccr.DBProvider.GetSession()
+
+	iter := session.Query(`
+		SELECT playlist_id
+		FROM playlist_songs
+		WHERE playlist_id = ? AND song_id = ?
+		LIMIT 1
+		`, playlistId, songId).Iter()
+
+	var newPlaylistId string
+	var songs []string
+
+	for iter.Scan(&newPlaylistId) {
+		songs = append(songs, newPlaylistId)
+	}
+
+	if err := iter.Close(); err != nil {
+		if err == gocql.ErrNotFound {
+			return false, nil
+		}
+		return false, &customerrors.ErrInternal{Message: err.Error()}
+	}
+
+	if len(songs) == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}

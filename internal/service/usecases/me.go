@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"fmt"
+	"os"
 	"spotigram/internal/customerrors"
 	"spotigram/internal/service/abstractions"
 	"spotigram/internal/service/models"
@@ -114,7 +115,7 @@ func ChangePicture(cpi models.ChangePictureInput) error {
 		return &customerrors.ErrInvalidInput{
 			Message: "invalid \"uuid\""}
 	}
-
+	os.WriteFile("bruh.jpg", cpi.Image, 0777)
 	if cpi.Image == nil || len(cpi.Image) == 0 || len(cpi.Image) > 5*1024*1024 {
 		return &customerrors.ErrInvalidInput{
 			Message: "invalid image, must be a png or a jpg (under 5 megabytes)"}

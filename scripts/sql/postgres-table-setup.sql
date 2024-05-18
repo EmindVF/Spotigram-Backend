@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS friendships (
   user1_id UUID NOT NULL,
   user2_id UUID NOT NULL,
   chat_id UUID NOT NULL UNIQUE,
-  PRIMARY KEY (user1_id,user2_id),
+  PRIMARY KEY (user1_id, user2_id),
   FOREIGN KEY (user1_id) REFERENCES users (id),
   FOREIGN KEY (user2_id) REFERENCES users (id)
 );
@@ -32,11 +32,14 @@ CREATE TABLE IF NOT EXISTS songs (
   id UUID NOT NULL PRIMARY KEY,
   creator_id UUID REFERENCES users (id),
   name VARCHAR(100) NOT NULL,
+  length INTEGER NOT NULL,
+  picture BYTEA,
   file BYTEA
 );
 
 CREATE TABLE IF NOT EXISTS playlists (
   id UUID NOT NULL PRIMARY KEY,
   name VARCHAR(100),
+  length INTEGER,
   user_id UUID REFERENCES users (id) 
 );

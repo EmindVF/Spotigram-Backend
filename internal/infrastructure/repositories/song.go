@@ -19,7 +19,7 @@ func (ssr *SqlSongRepository) GetSongs(offset int) ([]models.Song, error) {
 
 	var songs []models.Song
 	db := ssr.DBProvider.GetDb()
-	rows, err := db.Query("SELECT id, creator_id, name FROM songs OFFSET $1 LIMIT 100", offset)
+	rows, err := db.Query("SELECT id, creator_id, name, length FROM songs OFFSET $1 LIMIT 100", offset)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, &customerrors.ErrNotFound{Message: "songs not found"}
@@ -33,7 +33,8 @@ func (ssr *SqlSongRepository) GetSongs(offset int) ([]models.Song, error) {
 		if err := rows.Scan(
 			&songs[len(songs)-1].Id,
 			&songs[len(songs)-1].CreatorId,
-			&songs[len(songs)-1].Name); err != nil {
+			&songs[len(songs)-1].Name,
+			&songs[len(songs)-1].Length); err != nil {
 			return nil, &customerrors.ErrInternal{Message: err.Error()}
 		}
 	}
@@ -49,6 +50,38 @@ func (ssr *SqlSongRepository) GetSongs(offset int) ([]models.Song, error) {
 	}
 
 	return songs, nil
+}
+
+func (ssr *SqlSongRepository) GetSongInfo(songId string) (*models.Song, error) {
+	song := models.Song{
+		Id: songId,
+	}
+	db := ssr.DBProvider.GetDb()
+	row := db.QueryRow("SELECT name, length, user_id FROM songs WHERE id = $1", songId)
+	if err := row.Scan(&song.Name, &song.Length, &song.CreatorId); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &customerrors.ErrNotFound{Message: "no such song"}
+		} else {
+			return nil, &customerrors.ErrInternal{Message: err.Error()}
+		}
+	}
+
+	return &song, nil
+}
+
+func (ssr *SqlSongRepository) GetSongFile(songId string) ([]byte, error) {
+	var file []byte
+	db := ssr.DBProvider.GetDb()
+	row := db.QueryRow("SELECT file FROM songs WHERE id = $1", songId)
+	if err := row.Scan(&file); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &customerrors.ErrNotFound{Message: "no such song"}
+		} else {
+			return nil, &customerrors.ErrInternal{Message: err.Error()}
+		}
+	}
+
+	return file, nil
 }
 
 func (ssr *SqlSongRepository) DeleteSong(songId string) error {
@@ -77,16 +110,16 @@ func (ssr *SqlSongRepository) DeleteSong(songId string) error {
 	return nil
 }
 
-func (ssr *SqlSongRepository) AddSong(song models.Song) error {
+func (ssr *SqlSongRepository) AddSong(song models.Song, picture []byte, file []byte) error {
 	db := ssr.DBProvider.GetDb()
 
-	stmt, err := db.Prepare("INSERT INTO songs (id, creator_id, name, file) VALUES ($1, $2, $3, $4)")
+	stmt, err := db.Prepare("INSERT INTO songs (id, creator_id, name, length, picture, file) VALUES ($1, $2, $3, $4, $5, $6)")
 	if err != nil {
 		panic(fmt.Errorf("error preparing AddSong SQL statement: %v", err))
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(song.Id, song.CreatorId, song.Name, song.File)
+	_, err = stmt.Exec(song.Id, song.CreatorId, song.Name, song.Length, picture, file)
 	if err == sql.ErrConnDone {
 		return &customerrors.ErrInternal{Message: "connection is done"}
 	} else if err != nil {
@@ -94,4 +127,22 @@ func (ssr *SqlSongRepository) AddSong(song models.Song) error {
 	}
 
 	return nil
+}
+
+// Returns a song's picture by its uuid.
+// UUID validation is not provided.
+// May return ErrInternal or ErrNotFound on failure.
+func (sdm *SqlSongRepository) GetPicture(songId string) ([]byte, error) {
+	var pic []byte
+	err := sdm.DBProvider.GetDb().QueryRow(
+		"SELECT picture FROM songs WHERE id = $1", songId).Scan(
+		&pic)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &customerrors.ErrNotFound{Message: "song not found"}
+		} else {
+			return nil, &customerrors.ErrInternal{Message: err.Error()}
+		}
+	}
+	return pic, nil
 }
