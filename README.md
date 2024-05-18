@@ -40,7 +40,7 @@ Expects `access_token` and `refresh_token`.\
 Input: None\
 Output: None
 
-`/auth/refresh`- logs out a.\
+`/auth/refresh`- refreshes the token.\
 Expects `refresh_token`.\
 Input: None\
 Output:
@@ -115,7 +115,7 @@ Output:
 
 `/me/info` - returns info of current user.\
 Expects `access_token`.\
-Input: None\
+Input: None
 Output: 
 ```json
 {
@@ -128,7 +128,7 @@ Output:
 
 `/me/public-key` - returns the pubic key of current user for end-to-end encryption.\
 Expects `access_token`.\
-Input: None\
+Input: None
 Output: 
 ```json
 {
@@ -298,11 +298,11 @@ Output: raw bytes of an mp3 song.
 `/song/upload/<SONGNAME>` - uploads an mp3 song.\
 Expects `access_token`.\
 Input: raw bytes of an mp3 song.
-Output: None\
+Output: None
 
 `/song/stream` - used for streaming.\
 Expects `access_token`.\
-Input: None.\
+Input: None
 Output: sends files specified in the url \
 Example:
 `/song/stream/<SONGID>.m3u8` - header for HLS streaming.
@@ -373,7 +373,7 @@ Input:
     "id" (UUID)
 }
 ```
-Output: None\
+Output: None
 
 `/playlist/add-song` - deletes a playlist.\
 Expects `access_token`.\
@@ -384,7 +384,7 @@ Input:
     "song_id" (UUID)
 }
 ```
-Output: None\
+Output: None
 
 `/playlist/delete-song` - deletes a playlist.\
 Expects `access_token`.\
@@ -395,14 +395,14 @@ Input:
     "song_id" (UUID)
 }
 ```
-Output: None\
+Output: None
 
 
 
 ### Chat
 `/chat/messages` - returns a list of messages of a chat.\
-Expects `access_token`.\
-Max amout of items - 100.\
+Expects `access_token`. \
+Max amout of items - 100. \
 Input:
 ```json
 {
@@ -424,8 +424,8 @@ Output:
 ]
 ```
 
-`/chat/connect` - connects the user to the websocket for real-time messaging and friend activity.\
-Expects `access_token`.\
+`/chat/connect` - connects the user to the websocket for real-time messaging and friend activity. \
+Expects `access_token`. 
 
 ## How to build
 ```sh
