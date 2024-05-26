@@ -183,6 +183,29 @@ func AcceptFriendRequest(afri models.AcceptFriendRequestInput) (*models.Friend, 
 
 	err = abstractions.FriendRepositoryInstance.
 		AddFriend(newFriend)
+	if err != nil {
+		return nil, err
+	}
+
+	err = abstractions.ReadTimeRepositoryInstance.
+		AddReadTime(&models.ReadTime{
+			UserId: afri.SenderUUID,
+			ChatId: newFriend.ChatId,
+			TimeId: 0,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	err = abstractions.ReadTimeRepositoryInstance.
+		AddReadTime(&models.ReadTime{
+			UserId: afri.RecipientUUID,
+			ChatId: newFriend.ChatId,
+			TimeId: 0,
+		})
+	if err != nil {
+		return nil, err
+	}
 
 	return &newFriend, err
 }

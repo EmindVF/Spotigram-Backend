@@ -64,19 +64,24 @@ func (s *FiberServer) Start() {
 	playlist.Get("/all", middleware.DeserializeTokenHandler, controllers.PlaylistsHandler)
 	playlist.Get("/songs", middleware.DeserializeTokenHandler, controllers.PlaylistSongsHandler)
 	playlist.Post("/create", middleware.DeserializeTokenHandler, controllers.AddPlaylistHandler)
+	playlist.Post("/rename", middleware.DeserializeTokenHandler, controllers.RenamePlaylistHandler)
 	playlist.Delete("/delete", middleware.DeserializeTokenHandler, controllers.DeletePlaylistHandler)
 	playlist.Post("/add-song", middleware.DeserializeTokenHandler, controllers.AddPlaylistSongHandler)
 	playlist.Delete("/delete-song", middleware.DeserializeTokenHandler, controllers.DeletePlaylistSongHandler)
 
 	song := s.app.Group("/song")
 	song.Get("/all", middleware.DeserializeTokenHandler, controllers.SongsHandler)
+	song.Get("/info", middleware.DeserializeTokenHandler, controllers.SongInfoHandler)
+	song.Post("/rename", middleware.DeserializeTokenHandler, controllers.RenameSongHandler)
 	song.Get("/picture", middleware.DeserializeTokenHandler, controllers.SongPictureHandler)
 	song.Get("/download", middleware.DeserializeTokenHandler, controllers.DownloadSongHandler)
+	song.Delete("/delete", middleware.DeserializeTokenHandler, controllers.DeleteSongHandler)
 	song.Get("/stream/:filename", middleware.DeserializeTokenHandler, controllers.GetSongChunk)
 	song.Post("/upload/:songname", middleware.DeserializeTokenHandler, controllers.UploadSongHandler)
 
 	chat := s.app.Group("/chat")
 	chat.Get("/messages", middleware.DeserializeTokenHandler, controllers.ChatMessagesHandler)
+	chat.Get("/unread-messages", middleware.DeserializeTokenHandler, controllers.ChatUnreadMessagesHandler)
 
 	go ws.RunChatHub()
 	s.app.Get("/connect", middleware.DeserializeTokenHandler, ws.WebsocketChatUpgradeHandler,

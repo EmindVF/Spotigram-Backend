@@ -6,6 +6,7 @@ import (
 
 	"spotigram/internal/service/models"
 	"spotigram/internal/service/usecases"
+	"spotigram/internal/utility"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -27,11 +28,41 @@ type notificationResponce struct {
 	Content json.RawMessage `json:"content"`
 }
 
+type statusCheckContext struct {
+	SenderId string
+	UserId   string
+}
+
+type statusUpdateContext struct {
+	SenderId string
+	UserId   string
+	Status   int
+}
+
+type statusCheckResponse struct {
+	UserId string `json:"user_id"`
+	Status string `json:"status"`
+}
+
+// -1 to none
+var STATUSES = map[int]string{
+	0: "online",
+	1: "writing",
+}
+
+type chatStatus struct {
+	UserId string
+	Status int
+}
+
 var (
-	connections = make(map[string]*websocket.Conn)
-	register    = make(chan *websocket.Conn)
-	broadcast   = make(chan responceContext)
-	unregister  = make(chan *websocket.Conn)
+	connections  = make(map[string]*websocket.Conn)
+	chatStatuses = make(map[string]*chatStatus)
+	register     = make(chan *websocket.Conn)
+	broadcast    = make(chan responceContext)
+	unregister   = make(chan *websocket.Conn)
+	statusCheck  = make(chan statusCheckContext)
+	statusUpdate = make(chan statusUpdateContext)
 )
 
 func RunChatHub() {
@@ -60,9 +91,160 @@ func RunChatHub() {
 				connection.Close()
 			}
 
+		// Update status
+		case ctx := <-statusUpdate:
+			var ok bool
+			_, ok = connections[ctx.SenderId]
+			if !ok {
+				continue
+			}
+			prevChatStatus, ok := chatStatuses[ctx.SenderId]
+			if !ok {
+				prevChatStatus = nil
+			}
+			conU, ok := connections[ctx.UserId]
+			if !ok {
+				conU = nil
+			}
+
+			if ctx.Status != -1 {
+				chatStatuses[ctx.SenderId] = &chatStatus{
+					UserId: ctx.UserId,
+					Status: ctx.Status,
+				}
+			} else {
+				delete(chatStatuses, ctx.SenderId)
+			}
+
+			if conU != nil {
+				var content []byte
+				if ctx.Status == -1 {
+					content, _ = json.Marshal(statusCheckResponse{
+						UserId: ctx.SenderId,
+						Status: "offline",
+					})
+				} else {
+					content, _ = json.Marshal(statusCheckResponse{
+						UserId: ctx.SenderId,
+						Status: STATUSES[ctx.Status],
+					})
+				}
+
+				message, _ := json.Marshal(notificationResponce{
+					Status:  "status-update",
+					Content: content,
+				})
+
+				ctx2 := responceContext{
+					MessageType:  websocket.TextMessage,
+					Message:      string(message),
+					ReceiverUUID: ctx.UserId,
+				}
+
+				if err := conU.WriteMessage(ctx2.MessageType, []byte(ctx2.Message)); err != nil {
+					//bruh
+				}
+			}
+
+			if prevChatStatus != nil && prevChatStatus.UserId != ctx.UserId {
+				conP, ok := connections[prevChatStatus.UserId]
+				if !ok {
+					continue
+				}
+
+				var content []byte
+				content, _ = json.Marshal(statusCheckResponse{
+					UserId: ctx.SenderId,
+					Status: "offline",
+				})
+
+				message, _ := json.Marshal(notificationResponce{
+					Status:  "status-update",
+					Content: content,
+				})
+
+				ctx2 := responceContext{
+					MessageType:  websocket.TextMessage,
+					Message:      string(message),
+					ReceiverUUID: ctx.UserId,
+				}
+
+				if err := conP.WriteMessage(ctx2.MessageType, []byte(ctx2.Message)); err != nil {
+					//bruh
+				}
+			}
+
+		// Check status
+		case ctx := <-statusCheck:
+			var ok bool
+			con, ok := connections[ctx.SenderId]
+			if !ok {
+				continue
+			}
+			_, ok = connections[ctx.UserId]
+
+			var content []byte
+			if ok {
+				chatStatus, ok := chatStatuses[ctx.UserId]
+				if !ok || chatStatus.UserId != ctx.SenderId {
+					content, _ = json.Marshal(statusCheckResponse{
+						UserId: ctx.UserId,
+						Status: "offline",
+					})
+				} else {
+					content, _ = json.Marshal(statusCheckResponse{
+						UserId: ctx.UserId,
+						Status: STATUSES[chatStatus.Status],
+					})
+				}
+			} else {
+				content, _ = json.Marshal(statusCheckResponse{
+					UserId: ctx.UserId,
+					Status: "offline",
+				})
+			}
+
+			message, _ := json.Marshal(notificationResponce{
+				Status:  "status-update",
+				Content: content,
+			})
+
+			ctx2 := responceContext{
+				MessageType:  websocket.TextMessage,
+				Message:      string(message),
+				ReceiverUUID: ctx.SenderId,
+			}
+
+			if err := con.WriteMessage(ctx2.MessageType, []byte(ctx2.Message)); err != nil {
+				unregister <- con
+				con.WriteMessage(websocket.CloseMessage, []byte{})
+				con.Close()
+			}
+
 		// Disconnect
 		case connection := <-unregister:
 			delete(connections, connection.Locals("user_uuid").(string))
+
+			chatStatus, ok := chatStatuses[connection.Locals("user_uuid").(string)]
+			if ok {
+				delete(chatStatuses, connection.Locals("user_uuid").(string))
+				content, _ := json.Marshal(statusCheckResponse{
+					UserId: connection.Locals("user_uuid").(string),
+					Status: "offline",
+				})
+				message, _ := json.Marshal(notificationResponce{
+					Status:  "status-update",
+					Content: content,
+				})
+				ctx2 := responceContext{
+					MessageType:  websocket.TextMessage,
+					Message:      string(message),
+					ReceiverUUID: chatStatus.UserId,
+				}
+				if err := connection.WriteMessage(ctx2.MessageType, []byte(ctx2.Message)); err != nil {
+					continue
+				}
+			}
 
 		// Send pings
 		case <-ticker.C:
@@ -322,19 +504,24 @@ func WebsocketChatLoop(c *websocket.Conn) {
 				sendOk(userUUID)
 
 			case "send-message":
-				var input = models.Message{}
-				err := json.Unmarshal(payload.Content, &input)
-				input.UserId = c.Locals("user_uuid").(string)
+				var inputBase = models.SendMessageInput{}
+				err := json.Unmarshal(payload.Content, &inputBase)
 				if err != nil {
 					sendError("invalid \"content\"", userUUID)
 					continue
 				}
 
-				if input.ChatId == "" {
+				if inputBase.ChatId == "" {
 					sendError("invalid chat \"id\"", userUUID)
 					continue
 				}
-
+				input := models.Message{
+					UserId:      c.Locals("user_uuid").(string),
+					ChatId:      inputBase.ChatId,
+					Content:     inputBase.Content,
+					IsEncrypted: inputBase.IsEncrypted,
+					TimeId:      inputBase.TimeId,
+				}
 				recipientUUID, message, err := usecases.SendMessage(input)
 				if err != nil {
 					sendError(err.Error(), userUUID)
@@ -381,6 +568,107 @@ func WebsocketChatLoop(c *websocket.Conn) {
 					recipientUUID)
 
 				sendOk(userUUID)
+
+				sendNotification(
+					"message-deleted",
+					notificationMessage,
+					userUUID)
+
+			case "check-status":
+				var input = models.CheckStatusInput{}
+				err := json.Unmarshal(payload.Content, &input)
+				if err != nil {
+					sendError("invalid \"content\"", userUUID)
+					continue
+				}
+
+				if check := utility.IsValidUUID(input.UserId); !check {
+					sendError("invalid user \"id\"", userUUID)
+					continue
+				}
+
+				sendOk(userUUID)
+
+				statusCheck <- statusCheckContext{
+					SenderId: userUUID,
+					UserId:   input.UserId,
+				}
+
+			case "update-status":
+				var input = models.UpdateStatusInput{}
+				err := json.Unmarshal(payload.Content, &input)
+				if err != nil {
+					sendError("invalid \"content\"", userUUID)
+					continue
+				}
+
+				if check := utility.IsValidUUID(input.UserId); !check {
+					sendError("invalid user \"id\"", userUUID)
+					continue
+				}
+
+				if input.Status < -1 || input.Status > 1 {
+					sendError("invalid status", userUUID)
+					continue
+				}
+
+				sendOk(userUUID)
+
+				statusUpdate <- statusUpdateContext{
+					SenderId: userUUID,
+					UserId:   input.UserId,
+					Status:   input.Status,
+				}
+
+			case "get-read-time":
+				var input = models.GetReadTimeInput{}
+				err := json.Unmarshal(payload.Content, &input)
+				if err != nil {
+					sendError("invalid \"content\"", userUUID)
+					continue
+				}
+
+				readTime, err := usecases.GetReadTime(input)
+				if err != nil {
+					sendError(err.Error(), userUUID)
+					continue
+				}
+
+				// Notify user
+				notificationMessage, _ := json.Marshal(readTime)
+
+				sendOk(userUUID)
+
+				sendNotification(
+					"read-time-received",
+					notificationMessage,
+					userUUID)
+
+			case "update-read-time":
+				var input = models.UpdateReadTimeInput{}
+				err := json.Unmarshal(payload.Content, &input)
+				if err != nil {
+					sendError("invalid \"content\"", userUUID)
+					continue
+				}
+
+				input.UserId = userUUID
+
+				readTime, receiverId, err := usecases.UpdateReadTime(input)
+				if err != nil {
+					sendError(err.Error(), userUUID)
+					continue
+				}
+
+				// Notify user
+				notificationMessage, _ := json.Marshal(readTime)
+
+				sendOk(userUUID)
+
+				sendNotification(
+					"read-time-received",
+					notificationMessage,
+					receiverId)
 
 			default:
 				sendError("invalid \"action\"", userUUID)

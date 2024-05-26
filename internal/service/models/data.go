@@ -35,15 +35,11 @@ type Playlist struct {
 	Id     string `json:"id"`
 	UserId string `json:"-"`
 	Name   string `json:"name"`
-	Length int    `json:"length"`
 }
 
 type PlaylistSong struct {
 	PlaylistId string
-	SongId     string
-	UserId     string
-	Name       string
-	Length     int
+	SongId     string `json:"song_id"`
 }
 
 type Song struct {
@@ -51,4 +47,17 @@ type Song struct {
 	CreatorId string `json:"creator_id"`
 	Name      string `json:"name"`
 	Length    int    `json:"length"`
+	Streams   int    `json:"streams"`
+}
+
+type LastStream struct {
+	UserId string
+	SongId string
+	Time   int64
+}
+
+type ReadTime struct {
+	UserId string
+	ChatId string
+	TimeId int64
 }

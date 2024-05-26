@@ -18,16 +18,13 @@ func (cps *CqlPlaylistSongRepository) AddPlaylistSong(playlistSong models.Playli
 	session := cps.DBProvider.GetSession()
 
 	insertStmt := session.Query(`
-		INSERT INTO playlist_songs (playlist_id, song_id, user_id, name, length)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO playlist_songs (playlist_id, song_id)
+		VALUES (?, ?)
 	`)
 
 	err := insertStmt.Bind(
 		playlistSong.PlaylistId,
 		playlistSong.SongId,
-		playlistSong.UserId,
-		playlistSong.Name,
-		playlistSong.Length,
 	).Exec()
 
 	if err != nil {
@@ -58,6 +55,43 @@ func (cps *CqlPlaylistSongRepository) DeletePlaylistSong(playlistId, songId stri
 
 // Deletes a song from the repository.
 // May return ErrInternal or ErrNotFound on failure.
+func (cps *CqlPlaylistSongRepository) DeleteSong(songId string) error {
+	session := cps.DBProvider.GetSession()
+
+	stmt :=
+		session.Query("DELETE FROM playlist_songs WHERE song_id = ?",
+			songId)
+
+	if err := stmt.Exec(); err != nil {
+		if err == gocql.ErrNotFound {
+			return &customerrors.ErrNotFound{Message: err.Error()}
+		}
+		return &customerrors.ErrInternal{Message: err.Error()}
+	}
+
+	return nil
+}
+
+// Deletes a song from the repository.
+// May return ErrInternal or ErrNotFound on failure.
+func (cps *CqlPlaylistSongRepository) GetPlaylistLength(playlistId string) (int, error) {
+	session := cps.DBProvider.GetSession()
+
+	var count int
+	query := session.Query("SELECT COUNT(*) FROM playlist_songs WHERE playlist_id = ?", playlistId)
+	err := query.Scan(&count)
+	if err != nil {
+		if err == gocql.ErrNotFound {
+			return 0, &customerrors.ErrNotFound{Message: err.Error()}
+		}
+		return 0, &customerrors.ErrInternal{Message: err.Error()}
+	}
+	return count, nil
+
+}
+
+// Deletes a song from the repository.
+// May return ErrInternal or ErrNotFound on failure.
 func (cps *CqlPlaylistSongRepository) DeletePlaylistSongs(playlistId string) error {
 	session := cps.DBProvider.GetSession()
 
@@ -78,13 +112,13 @@ func (cps *CqlPlaylistSongRepository) DeletePlaylistSongs(playlistId string) err
 // Returns first 100 playlist songs.
 // UUID validation is not provided
 // May return Err internal
-func (cps *CqlPlaylistSongRepository) GetPlaylistSongs(playlistId string) ([]models.Song, error) {
+func (cps *CqlPlaylistSongRepository) GetPlaylistSongs(playlistId string) ([]models.PlaylistSong, error) {
 	session := cps.DBProvider.GetSession()
 
-	var songs []models.Song
+	var songIds []models.PlaylistSong
 
 	iter := session.Query(`
-		SELECT song_id, user_id, name, length
+		SELECT song_id
 		FROM playlist_songs
 		WHERE playlist_id = ? 
 		LIMIT 100
@@ -92,17 +126,12 @@ func (cps *CqlPlaylistSongRepository) GetPlaylistSongs(playlistId string) ([]mod
 
 	var (
 		song_id string
-		user_id string
-		name    string
-		length  int
 	)
 
-	for iter.Scan(&song_id, &user_id, &name, &length) {
-		songs = append(songs, models.Song{
-			Id:        song_id,
-			CreatorId: user_id,
-			Name:      name,
-			Length:    length,
+	for iter.Scan(&song_id) {
+		songIds = append(songIds, models.PlaylistSong{
+			PlaylistId: playlistId,
+			SongId:     song_id,
 		})
 	}
 
@@ -113,11 +142,11 @@ func (cps *CqlPlaylistSongRepository) GetPlaylistSongs(playlistId string) ([]mod
 		return nil, &customerrors.ErrInternal{Message: err.Error()}
 	}
 
-	if len(songs) == 0 {
+	if len(songIds) == 0 {
 		return nil, &customerrors.ErrNotFound{Message: "no songs"}
 	}
 
-	return songs, nil
+	return songIds, nil
 }
 
 // Checks if the song is in a playlist.

@@ -34,7 +34,8 @@ type DeserializeTokenInput struct {
 
 // User
 type GetUsersInput struct {
-	Offset int `validate:"required" json:"offset"`
+	Offset         int    `validate:"required" json:"offset"`
+	UserNameFilter string `validate:"max=100" json:"username_filter"`
 }
 
 type GetUserInfoInput struct {
@@ -128,6 +129,11 @@ type GetMessagesInput struct {
 	TimeId int64  `json:"id"`
 }
 
+type GetUnreadMessagesInput struct {
+	UserId string `json:"-"`
+	ChatId string `json:"chat_id"`
+}
+
 type SendMessageInput struct {
 	UserId      string `json:"-"`
 	ChatId      string `json:"chat_id"`
@@ -142,9 +148,24 @@ type DeleteMessageInput struct {
 	TimeId int64  `json:"id"`
 }
 
+type CheckStatusInput struct {
+	UserId string `json:"user_id"`
+}
+
+type UpdateStatusInput struct {
+	UserId string `json:"user_id"`
+	Status int    `json:"status"`
+}
+
 // Songs
 type GetSongsInput struct {
-	Offset int `validate:"required" json:"offset"`
+	Offset          int    `validate:"required" json:"offset"`
+	SongNameFilter  string `validate:"max=100" json:"songname_filter"`
+	CreatorIdFilter string `validate:"max=130" json:"creatorid_filter"`
+}
+
+type GetSongInfoInput struct {
+	SongId string `json:"id"`
 }
 
 type GetSongFileInput struct {
@@ -165,20 +186,33 @@ type AddSongInput struct {
 	File   []byte
 }
 
+type UpdateSongNameInput struct {
+	UserId string
+	SongId string `json:"id"`
+	Name   string `validate:"required,min=5,max=100" json:"new_name"`
+}
+
 type DeleteSongInput struct {
 	UserId string
-	SongId string
+	SongId string `json:"id"`
 }
 
 // Playlists
 type GetPlaylistsInput struct {
-	UserId string
-	Offset int `validate:"required" json:"offset"`
+	UserId             string
+	Offset             int    `validate:"required" json:"offset"`
+	PlaylistNameFilter string `validate:"max=100" json:"playlistname_filter"`
 }
 
 type AddPlaylistInput struct {
 	UserId string
 	Name   string `validate:"required,min=5,max=100" json:"name"`
+}
+
+type UpdatePlaylistNameInput struct {
+	UserId     string
+	PlaylistId string `json:"id"`
+	Name       string `validate:"required,min=5,max=100" json:"new_name"`
 }
 
 type DeletePlaylistInput struct {
@@ -201,4 +235,16 @@ type DeletePlaylistSongInput struct {
 type GetPlaylistSongsInput struct {
 	UserId     string
 	PlaylistId string `json:"id"`
+}
+
+// Read Times
+type GetReadTimeInput struct {
+	UserId string `json:"user_id"`
+	ChatId string `json:"chat_id"`
+}
+
+type UpdateReadTimeInput struct {
+	UserId string `json:"-"`
+	ChatId string `json:"chat_id"`
+	TimeId int64  `json:"time_id"`
 }

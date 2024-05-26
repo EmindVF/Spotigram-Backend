@@ -117,6 +117,33 @@ func AddPlaylistHandler(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"id": uuid})
 }
 
+func RenamePlaylistHandler(ctx *fiber.Ctx) error {
+	input := models.UpdatePlaylistNameInput{
+		UserId: ctx.Locals("user_uuid").(string),
+	}
+	err := json.Unmarshal((ctx.Body()), &input)
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status": "fail", "message": err.Error()})
+	}
+
+	err = usecases.UpdatePlaylistName(input)
+	if err != nil {
+		if errInternal, ok := err.(*customerrors.ErrInternal); ok {
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"status": "fail", "message": errInternal.Error()})
+		} else if _, ok := err.(*customerrors.ErrNotFound); ok {
+			return ctx.Status(fiber.StatusNoContent).JSON(fiber.Map{
+				"status": "fail", "message": "playlist not found"})
+		} else if _, ok := err.(*customerrors.ErrInvalidInput); ok {
+			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status": "fail", "message": "invalid uuid"})
+		}
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok"})
+}
+
 // A handler to send current user info.
 func AddPlaylistSongHandler(ctx *fiber.Ctx) error {
 	input := models.AddPlaylistSongInput{

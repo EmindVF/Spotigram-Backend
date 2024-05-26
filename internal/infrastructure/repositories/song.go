@@ -12,14 +12,24 @@ type SqlSongRepository struct {
 	DBProvider abstractions.SqlDatabaseProvider
 }
 
-func (ssr *SqlSongRepository) GetSongs(offset int) ([]models.Song, error) {
+func (ssr *SqlSongRepository) GetSongs(offset int, songNameFilter string, creatorIdFilter string) ([]models.Song, error) {
 	if offset < 0 {
 		return nil, &customerrors.ErrInternal{Message: "invalid offset"}
 	}
 
 	var songs []models.Song
 	db := ssr.DBProvider.GetDb()
-	rows, err := db.Query("SELECT id, creator_id, name, length FROM songs OFFSET $1 LIMIT 100", offset)
+	var rows *sql.Rows
+	var err error
+	if creatorIdFilter == "" {
+		rows, err = db.Query(
+			"SELECT id, creator_id, name, length, streams FROM songs WHERE name LIKE '%' || $2 || '%' ORDER BY streams DESC OFFSET $1 LIMIT 100",
+			offset, songNameFilter)
+	} else {
+		rows, err = db.Query(
+			"SELECT id, creator_id, name, length, streams FROM songs WHERE name LIKE '%' || $2 || '%' AND creator_id = $3 ORDER BY streams DESC OFFSET $1 LIMIT 100",
+			offset, songNameFilter, creatorIdFilter)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, &customerrors.ErrNotFound{Message: "songs not found"}
@@ -34,7 +44,8 @@ func (ssr *SqlSongRepository) GetSongs(offset int) ([]models.Song, error) {
 			&songs[len(songs)-1].Id,
 			&songs[len(songs)-1].CreatorId,
 			&songs[len(songs)-1].Name,
-			&songs[len(songs)-1].Length); err != nil {
+			&songs[len(songs)-1].Length,
+			&songs[len(songs)-1].Streams); err != nil {
 			return nil, &customerrors.ErrInternal{Message: err.Error()}
 		}
 	}
@@ -57,8 +68,8 @@ func (ssr *SqlSongRepository) GetSongInfo(songId string) (*models.Song, error) {
 		Id: songId,
 	}
 	db := ssr.DBProvider.GetDb()
-	row := db.QueryRow("SELECT name, length, user_id FROM songs WHERE id = $1", songId)
-	if err := row.Scan(&song.Name, &song.Length, &song.CreatorId); err != nil {
+	row := db.QueryRow("SELECT name, length, creator_id, streams FROM songs WHERE id = $1", songId)
+	if err := row.Scan(&song.Name, &song.Length, &song.CreatorId, &song.Streams); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, &customerrors.ErrNotFound{Message: "no such song"}
 		} else {
@@ -113,7 +124,7 @@ func (ssr *SqlSongRepository) DeleteSong(songId string) error {
 func (ssr *SqlSongRepository) AddSong(song models.Song, picture []byte, file []byte) error {
 	db := ssr.DBProvider.GetDb()
 
-	stmt, err := db.Prepare("INSERT INTO songs (id, creator_id, name, length, picture, file) VALUES ($1, $2, $3, $4, $5, $6)")
+	stmt, err := db.Prepare("INSERT INTO songs (id, creator_id, name, length, picture, file, streams) VALUES ($1, $2, $3, $4, $5, $6, 0)")
 	if err != nil {
 		panic(fmt.Errorf("error preparing AddSong SQL statement: %v", err))
 	}
@@ -124,6 +135,46 @@ func (ssr *SqlSongRepository) AddSong(song models.Song, picture []byte, file []b
 		return &customerrors.ErrInternal{Message: "connection is done"}
 	} else if err != nil {
 		return &customerrors.ErrInvalidInput{Message: err.Error()}
+	}
+
+	return nil
+}
+
+// Adds a playlist.
+// May return ErrInternal or ErrInvalidInput
+func (spp *SqlSongRepository) UpdateSongName(songId string, name string) error {
+	db := spp.DBProvider.GetDb()
+
+	stmt, err := db.Prepare("UPDATE songs SET name = $1 WHERE id = $2")
+	if err != nil {
+		panic(fmt.Errorf("error preparing UpdateSongName SQL statement: %v", err))
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(name, songId)
+	if err == sql.ErrConnDone {
+		return &customerrors.ErrInternal{Message: "connection is done"}
+	} else if err != nil {
+		return &customerrors.ErrInvalidInput{Message: err.Error()}
+	}
+
+	return nil
+}
+
+func (ssr *SqlSongRepository) IncrementStreams(songId string) error {
+	db := ssr.DBProvider.GetDb()
+
+	stmt, err := db.Prepare("UPDATE songs SET streams = streams + 1 WHERE id = $1")
+	if err != nil {
+		panic(fmt.Errorf("error preparing IncrementStreams SQL statement: %v", err))
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(songId)
+	if err == sql.ErrConnDone {
+		return &customerrors.ErrInternal{Message: "connection is done"}
+	} else if err != nil {
+		return &customerrors.ErrNotFound{Message: err.Error()}
 	}
 
 	return nil

@@ -103,17 +103,19 @@ func (sdm *SqlUserRepository) GetUser(uuid string) (*models.User, error) {
 	return &user, nil
 }
 
-// Returns a users, given offset.
+// Returns a users list, given offset and filter.
 // UUID validation is not provided.
 // May return ErrInternal or ErrNotFound on failure.
-func (sdm *SqlUserRepository) GetUsers(offset int) ([]models.User, error) {
+func (sdm *SqlUserRepository) GetUsers(offset int, usernameFilter string) ([]models.User, error) {
 	if offset < 0 {
 		return nil, &customerrors.ErrInternal{Message: "invalid offset"}
 	}
 
 	var users []models.User
 	db := sdm.DBProvider.GetDb()
-	rows, err := db.Query("SELECT id, name, email, password, verified FROM users OFFSET $1 LIMIT 100", offset)
+	rows, err := db.Query(
+		"SELECT id, name, email, password, verified FROM users WHERE name LIKE '%' || $2 || '%' OFFSET $1 LIMIT 100",
+		offset, usernameFilter)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, &customerrors.ErrNotFound{Message: "users not found"}

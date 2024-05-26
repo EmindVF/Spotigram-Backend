@@ -36,6 +36,11 @@ func ConvertAndResizeImageToWebP(input []byte, new_width uint, new_height uint) 
 		if err != nil {
 			return nil, err
 		}
+	} else if format == "webp" {
+		im, err = webp.Decode(bytes.NewReader(input))
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		return nil, fmt.Errorf("invalid image format")
 	}

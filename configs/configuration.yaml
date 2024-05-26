@@ -26,11 +26,11 @@ cache:
 access_token:
   private_key_path: ./configs/keys/key.priv
   public_key_path: ./configs/keys/key.pub
-  expires_in: 15m
+  expires_in: 240h
   max_age: 15
 
 refresh_token:
   private_key_path: ./configs/keys/key.priv
   public_key_path: ./configs/keys/key.pub
-  expires_in: 24h
+  expires_in: 240h
   max_age: 15

@@ -11,9 +11,6 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE TABLE IF NOT EXISTS playlist_songs (
     playlist_id UUID,
     song_id UUID,
-    user_id UUID,
-    name text,
-    length int,
     PRIMARY KEY (playlist_id, song_id)
 );
 

@@ -2,36 +2,30 @@ package utility
 
 import (
 	"bytes"
-	"fmt"
-	"io"
+	"strconv"
 	"strings"
 
 	dhowden "github.com/dhowden/tag"
-	tcolgate "github.com/tcolgate/mp3"
 )
 
 func IsValidMP3(file []byte) bool {
-	return strings.HasPrefix(string(file), "ID3")
+	//return strings.HasPrefix(string(file), "ID3")
+	return len(file) > 2 && file[0] == 'I' && file[1] == 'D' && file[2] == '3'
 }
 
-func GetMP3Length(file []byte) (int, error) {
-	decoder := tcolgate.NewDecoder(bytes.NewReader(file))
-	if decoder == nil {
-		return 0, fmt.Errorf("cannot decode mp3 file")
-	}
-	var frame tcolgate.Frame
-	var time float64 = 0
-	skipped := 0
-	for {
-		if err := decoder.Decode(&frame, &skipped); err != nil {
-			if err == io.EOF {
-				break
+func GetSongLengthFromM3U8(file []byte) (int, error) {
+	lines := strings.Split(string(file), "\n")
+	var length float64 = 0
+	for i, line := range lines {
+		if strings.HasPrefix(line, "#EXTINF:") {
+			partLength, err := strconv.ParseFloat(strings.Split(lines[i][8:], ",")[0], 64)
+			if err != nil {
+				return 0, err
 			}
-			return 0, err
+			length += partLength
 		}
-		time = time + frame.Duration().Seconds()
 	}
-	return int(time), nil
+	return int(length), nil
 }
 
 func GetMP3AlbumCover(file []byte) ([]byte, string, error) {

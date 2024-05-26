@@ -34,10 +34,10 @@ type UserRepository interface {
 	// May return ErrInternal or ErrNotFound on failure.
 	GetUser(uuid string) (*models.User, error)
 
-	// Returns a user list.
+	// Returns a user list filtered by name.
 	// Offset validation is provided.
 	// May return ErrInternal or ErrNotFound on failure.
-	GetUsers(offset int) ([]models.User, error)
+	GetUsers(offset int, usernameFilter string) ([]models.User, error)
 
 	// Updates a user's name.
 	// UUID and name validation is not provided.
@@ -156,7 +156,7 @@ type PlaylistRepository interface {
 	// Returns first 100 messages before a certain time id.
 	// UUID validation is not provided.
 	// May return ErrInternal.
-	GetPlaylists(userId string, offset int) ([]models.Playlist, error)
+	GetPlaylists(userId string, offset int, playlistNameFilter string) ([]models.Playlist, error)
 
 	// Returns the playlist by its id.
 	// UUID validation is not provided.
@@ -192,22 +192,35 @@ type PlaylistSongRepository interface {
 	// May return ErrInternal.
 	DeletePlaylistSongs(playlistId string) error
 
+	// Adds a song from all playlists.
+	// May return ErrInternal.
+	DeleteSong(songId string) error
+
+	// Returns the amount of songs in a playlist.
+	// May return ErrInternal.
+	GetPlaylistLength(playlistid string) (int, error)
+
 	// Returns first 100 playlist songs.
 	// UUID validation is not provided
 	// May return Err internal
-	GetPlaylistSongs(playlistId string) ([]models.Song, error)
+	GetPlaylistSongs(playlistId string) ([]models.PlaylistSong, error)
 }
 
 type SongRepository interface {
 	// Returns first 100 messages before a certain time id.
 	// UUID validation is not provided
 	// May return ErrInternal
-	GetSongs(offset int) ([]models.Song, error)
+	GetSongs(offset int, songNameFilter string, creatorIdFilter string) ([]models.Song, error)
 
 	// Returns songs info by its id.
 	// UUID validation is not provided.
 	// May return ErrInternal.
 	GetSongInfo(songId string) (*models.Song, error)
+
+	// Increments songs stream count.
+	// UUID validation is not provided.
+	// May return ErrInternal.
+	IncrementStreams(songId string) error
 
 	// Returns songs file by its id.
 	// UUID validation is not provided.
@@ -222,6 +235,10 @@ type SongRepository interface {
 	// Adds song to the repository.
 	// May return ErrInternal or ErrInvalidInput on failure.
 	AddSong(song models.Song, picture []byte, file []byte) error
+
+	// Updates a song name.
+	// May return ErrInternal or ErrNotFound on failure.
+	UpdateSongName(songId string, newName string) error
 
 	// Deletes a song from the repository.
 	// May return ErrInternal or ErrNotFound on failure.
@@ -240,4 +257,22 @@ type SongChunkRepository interface {
 	// Deletes a song from the repository.
 	// May return ErrInternal or ErrNotFound on failure.
 	DeleteSongChunks(songId string) error
+}
+
+type ReadTimeRepository interface {
+	// Adds ReadTime to the repository.
+	// May return ErrInternal on failure.
+	AddReadTime(*models.ReadTime) error
+
+	// Updates ReadTime to the repository.
+	// May return ErrInternal or ErrNotFound.
+	UpdateReadTime(userId string, chatId string, timeId int64) error
+
+	// Gets ReadTime by user id.
+	// May return ErrInternal or ErrNotFound.
+	GetReadTime(userId string, chatId string) (*models.ReadTime, error)
+
+	// Deletes every ReadTime for a given chat id.
+	// May return ErrInternal
+	DeleteReadTimeByChatId(chatId string) error
 }

@@ -19,3 +19,5 @@ var SongChunkRepositoryInstance SongChunkRepository
 var ServerInstance Server
 
 var JWTCacheInstance JWTCache
+
+var ReadTimeRepositoryInstance ReadTimeRepository

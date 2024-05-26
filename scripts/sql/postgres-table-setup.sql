@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS songs (
   creator_id UUID REFERENCES users (id),
   name VARCHAR(100) NOT NULL,
   length INTEGER NOT NULL,
+  streams INTEGER,
   picture BYTEA,
   file BYTEA
 );
@@ -40,6 +41,14 @@ CREATE TABLE IF NOT EXISTS songs (
 CREATE TABLE IF NOT EXISTS playlists (
   id UUID NOT NULL PRIMARY KEY,
   name VARCHAR(100),
-  length INTEGER,
   user_id UUID REFERENCES users (id) 
+);
+
+CREATE TABLE IF NOT EXISTS read_times (
+  user_id UUID NOT NULL,
+  chat_id UUID NOT NULL,
+  time_id BIGINT,
+  PRIMARY KEY (user_id, chat_id),
+  FOREIGN KEY (user_id) REFERENCES users (id),
+  FOREIGN KEY (chat_id) REFERENCES friendships (chat_id)
 );

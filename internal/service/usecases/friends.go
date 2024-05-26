@@ -52,6 +52,12 @@ func DeleteFriend(dfi models.DeleteFriendInput) error {
 		return err
 	}
 
+	err = abstractions.ReadTimeRepositoryInstance.
+		DeleteReadTimeByChatId(chatId)
+	if err != nil {
+		return err
+	}
+
 	err = abstractions.FriendRepositoryInstance.
 		DeleteFriend(dfi.User1UUID, dfi.User2UUID)
 

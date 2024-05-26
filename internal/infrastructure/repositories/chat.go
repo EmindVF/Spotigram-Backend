@@ -4,6 +4,7 @@ import (
 	"spotigram/internal/customerrors"
 	"spotigram/internal/infrastructure/abstractions"
 	"spotigram/internal/service/models"
+	"time"
 
 	"github.com/gocql/gocql"
 )
@@ -18,13 +19,14 @@ func (ccr *CqlChatRepository) AddMessage(m models.Message) error {
 	session := ccr.DBProvider.GetSession()
 
 	insertStmt := session.Query(`
-		INSERT INTO messages (user_id, chat_id, content, time_id, encrypted)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO messages (user_id, chat_id,creation_date, content, time_id, encrypted)
+		VALUES (?, ?,?, ?, ?, ?)
 	`)
 
 	err := insertStmt.Bind(
 		m.UserId,
 		m.ChatId,
+		m.Date,
 		m.Content,
 		m.TimeId,
 		m.IsEncrypted,
@@ -45,24 +47,26 @@ func (ccr *CqlChatRepository) GetMessages(chatId string, timeId int64) ([]models
 	var messages []models.Message
 
 	iter := session.Query(`
-		SELECT user_id, chat_id, content, time_id, encrypted 
+		SELECT user_id, chat_id, creation_date ,content, time_id, encrypted 
 		FROM messages 
 		WHERE chat_id = ? AND time_id < ?
 		LIMIT 100
 		`, chatId, timeId).Iter()
 
 	var (
-		user_id   string
-		chat_id   string
-		content   string
-		time_id   int64
-		encrypted bool
+		user_id       string
+		chat_id       string
+		creation_date time.Time
+		content       string
+		time_id       int64
+		encrypted     bool
 	)
 
-	for iter.Scan(&user_id, &chat_id, &content, &time_id, &encrypted) {
+	for iter.Scan(&user_id, &chat_id, &creation_date, &content, &time_id, &encrypted) {
 		messages = append(messages, models.Message{
 			UserId:      user_id,
 			ChatId:      chat_id,
+			Date:        creation_date,
 			Content:     content,
 			TimeId:      time_id,
 			IsEncrypted: encrypted,

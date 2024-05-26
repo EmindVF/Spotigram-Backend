@@ -15,11 +15,17 @@ func GetUsers(input models.GetUsersInput) ([]models.User, error) {
 		return nil, &customerrors.ErrInvalidInput{
 			Message: "invalid \"offset\""}
 	}
+	if !utility.IsValidStructField(input, "UserNameFilter") {
+		return nil, &customerrors.ErrInvalidInput{
+			Message: "invalid \"username_filter\" (empty or under 100 chars)"}
+	}
 	users, err :=
-		abstractions.UserRepositoryInstance.GetUsers(input.Offset)
+		abstractions.UserRepositoryInstance.GetUsers(
+			input.Offset, input.UserNameFilter)
 	if err != nil {
 		return nil, err
 	}
+
 	return users, nil
 }
 
